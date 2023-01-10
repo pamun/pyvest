@@ -1,5 +1,5 @@
-import finlib.general.finance as finance
-from finlib.portfolio_theory.investment_universe import InvestmentUniverse, \
+import finlib.general as finance
+from finlib.investment_universe import InvestmentUniverse, \
     InvestmentUniverseVisualizer
 
 import matplotlib.pyplot as plt
@@ -12,14 +12,14 @@ end_date = "2021-12-01"
 
 # Download data
 
-monthly_returns_df = finance.get_monthly_returns_df(tickers_list, 
-                                                    start_date=start_date, 
+monthly_returns_df = finance.get_monthly_returns_df(tickers_list,
+                                                    start_date=start_date,
                                                     end_date=end_date)
 
 print(monthly_returns_df.head())
 
-monthly_returns2_df = finance.get_monthly_returns_df(tickers2_list, 
-                                                     start_date=start_date, 
+monthly_returns2_df = finance.get_monthly_returns_df(tickers2_list,
+                                                     start_date=start_date,
                                                      end_date=end_date)
 
 print(monthly_returns2_df.head())

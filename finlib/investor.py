@@ -1,6 +1,6 @@
-from finlib.portfolio_theory.investment_universe import InvestmentUniverse
-from finlib.general.finance import Portfolio
-from finlib.general.finance import standard_utility_function
+from finlib.investment_universe import InvestmentUniverse
+from finlib.general import Portfolio
+from finlib.general import standard_utility_function
 
 import numpy as np
 
@@ -55,7 +55,7 @@ class Investor:
 
     def calculate_optimal_portfolio(self, x0=None):
 
-        nb_assets = len(self.__investment_universe.r_bar)
+        nb_assets = len(self.__investment_universe.mu)
 
         # Initial guess (seed value)
         if x0 is None:
@@ -69,16 +69,16 @@ class Investor:
 
         optimal_portfolio_result = minimize(
             lambda x: - self.__utility_function(
-                x, self.__investment_universe.r_bar,
-                self.__investment_universe.sigma, self.__gamma), x0,
+                x, self.__investment_universe.mu,
+                self.__investment_universe.cov, self.__gamma), x0,
             bounds=min_weight_bound,
             constraints=[sum_weights_assets_equals_one_constraint],
             tol=self.__optimization_tolerance)
 
         # Assign results
         self.__optimal_portfolio = Portfolio(optimal_portfolio_result.x,
-                                             self.__investment_universe.r_bar,
-                                             self.__investment_universe.sigma)
+                                             self.__investment_universe.mu,
+                                             self.__investment_universe.cov)
 
         return self.__optimal_portfolio
 
