@@ -258,6 +258,9 @@ class InvestmentUniverse:
         else:
             del self.__other_portfolios[portfolio_name]
 
+    def calculate_portfolio(self, weights):
+        return Portfolio(weights, self.__mu, self.__cov)
+
     def plot(self):
         if self.__visualizer is None:
             self.__visualizer = InvestmentUniverseVisualizer([self])

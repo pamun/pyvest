@@ -86,3 +86,7 @@ my_investment_universe_visualizer.plot()
 plt.show()
 
 # my_investment_universe_visualizer.fig
+
+
+investment_universe.calculate_portfolio([0.2, 0.3, 0.5])
+

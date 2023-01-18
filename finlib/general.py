@@ -99,10 +99,14 @@ class Portfolio:
         self.__assign_expense_ratios(expense_ratios, expense_ratio_r_f)
 
     def __repr__(self):
-        return str(self.__weights)
+        return "weights: {}\nexpected returns: {}\nstandard deviation: " \
+               "{}".format(str(self.__weights), str(self.expected_return),
+                           str(self.standard_deviation))
 
     def __str__(self):
-        return str(self.__weights)
+        return "weights: {}\nexpected returns: {}\nstandard deviation: " \
+               "{}".format(str(self.__weights), str(self.expected_return),
+                           str(self.standard_deviation))
 
     ##################### mu ###################    
     @property

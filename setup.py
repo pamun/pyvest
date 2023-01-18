@@ -5,7 +5,8 @@ setup(
     version='0.0.1',
     authors=['Patrick Munroe', 'Sébastien Plante'],
     maintainer='Patrick Munroe',
-    packages=['finlib', 'finlib.factor_models', 'finlib.general',
-              'finlib.portfolio_theory', 'finlib.simulation'],
-    package_dir={'finlib': 'finlib'}
+    packages=['finlib'],
+    package_dir={'finlib': 'finlib'},
+    install_requires=['matplotlib', 'scipy', 'numpy', 'pandas', 'yfinance',
+                      'statsmodels']
 )
