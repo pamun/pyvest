@@ -44,25 +44,6 @@ def standard_utility_function(x, mu, cov, gamma):
 ######################## DOWNLOAD AND TRANSFORM DATA FROM YAHOO FINANCE ########################
 ################################################################################################
 
-# def get_monthly_returns_series(ticker, date_start, date_end):
-#     daily_raw_data_df = pdr.get_data_yahoo(ticker, start=date_start, end=date_end)  # Import daily data
-#
-#     daily_adj_close_seris = daily_raw_data_df["Adj Close"]
-#     monthly_adj_close_series = daily_adj_close_seris.resample('M').last()  # Resample at the monthly frequency
-#     monthly_returns_series = monthly_adj_close_series / monthly_adj_close_series.shift(1) - 1  # Calculate returns
-#     monthly_returns_series = monthly_returns_series[1:]  # Eliminate the first observation
-#
-#     return monthly_returns_series
-
-# def get_monthly_returns_df(tickers_list, date_start, date_end):
-#     ticker_monthly_returns_dict = {}
-#     for ticker in tickers_list:
-#         monthly_returns_series = get_monthly_returns_series(ticker, date_start, date_end)
-#         ticker_monthly_returns_dict[ticker] = monthly_returns_series
-#     monthly_returns_df = pd.DataFrame(ticker_monthly_returns_dict)
-#
-#     return monthly_returns_df
-
 
 def get_monthly_returns_series(ticker, start_date, end_date):
     history_df = yf.Ticker(ticker).history(start=start_date, end=end_date,
@@ -73,7 +54,7 @@ def get_monthly_returns_series(ticker, start_date, end_date):
     return monthly_returns_series
 
 
-def get_monthly_returns_df(tickers_list, start_date, end_date):
+def get_monthly_returns(tickers_list, start_date, end_date):
     monthly_returns_df = pd.DataFrame()
     for ticker in tickers_list:
         monthly_returns_series = get_monthly_returns_series(ticker, start_date,

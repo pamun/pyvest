@@ -1,6 +1,6 @@
-from finlib.investment_universe import InvestmentUniverse
-from finlib.general import Portfolio
-from finlib.general import standard_utility_function
+from pyvest.investment_universe.investment_universe import InvestmentUniverse
+from pyvest.general.general import Portfolio
+from pyvest.general.general import standard_utility_function
 
 import numpy as np
 

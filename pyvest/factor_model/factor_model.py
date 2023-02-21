@@ -126,12 +126,16 @@ class FactorModel:
         self.__realized_average_returns_list = []
         self.__predicted_average_returns_list = []
         for i in range(0, len(estimated_alpha_list)):
-            betas_dot_factors_mean = np.dot(factors_mean, estimated_betas_list[i])
-            realized_average_returns = estimated_alpha_list[i] + rf_mean + betas_dot_factors_mean
+            betas_dot_factors_mean = np.dot(factors_mean,
+                                            estimated_betas_list[i])
+            realized_average_returns = estimated_alpha_list[
+                                           i] + rf_mean + betas_dot_factors_mean
             predicted_average_returns = rf_mean + betas_dot_factors_mean
 
-            self.__realized_average_returns_list.append(realized_average_returns)
-            self.__predicted_average_returns_list.append(predicted_average_returns)
+            self.__realized_average_returns_list.append(
+                realized_average_returns)
+            self.__predicted_average_returns_list.append(
+                predicted_average_returns)
 
         return self.__realized_average_returns_list, self.__predicted_average_returns_list
 
@@ -143,10 +147,13 @@ class FactorModel:
         self.__upper_error_bars_list = []
         self.__lower_error_bars_list = []
         for column_name, estimated_alpha in self.__estimated_alpha_dict.items():
-            conf_int_df = self.__calculate_single_conf_int(self.__regression_results_dict[column_name],
-                                                           confidence_level)
-            upper_errorbar = conf_int_df.loc['const']['Upper bound'] - estimated_alpha
-            lower_errorbar = estimated_alpha - conf_int_df.loc['const']['Lower bound']
+            conf_int_df = self.__calculate_single_conf_int(
+                self.__regression_results_dict[column_name],
+                confidence_level)
+            upper_errorbar = conf_int_df.loc['const'][
+                                 'Upper bound'] - estimated_alpha
+            lower_errorbar = estimated_alpha - conf_int_df.loc['const'][
+                'Lower bound']
             self.__upper_error_bars_list.append(upper_errorbar)
             self.__lower_error_bars_list.append(lower_errorbar)
 
@@ -161,12 +168,14 @@ class FactorModel:
 
     def __check_factors(self, factors):
         if len(factors) != len(self.__r_f):
-            raise ValueError("The arguments of 'factors' and 'rf' must be of the same length.")
+            raise ValueError(
+                "The arguments of 'factors' and 'rf' must be of the same length.")
         return True
 
     def __check_returns(self, returns):
         if len(returns) != len(self.__r_f):
-            raise ValueError("The arguments of 'returns' and 'rf' must be of the same length.")
+            raise ValueError(
+                "The arguments of 'returns' and 'rf' must be of the same length.")
         return True
 
     def __calculate_single_regression(self, y):
@@ -179,9 +188,11 @@ class FactorModel:
 
         return regression_results, estimated_alpha, estimated_betas
 
-    def __calculate_single_conf_int(self, regression_results, confidence_level):
+    def __calculate_single_conf_int(self, regression_results,
+                                    confidence_level):
         conf_int_df = regression_results.conf_int(1 - confidence_level)
-        conf_int_df.rename({0: 'Lower bound', 1: 'Upper bound'}, axis=1, inplace=True)
+        conf_int_df.rename({0: 'Lower bound', 1: 'Upper bound'}, axis=1,
+                           inplace=True)
 
         return conf_int_df
 
@@ -192,17 +203,19 @@ class FactorModel:
 
 class FactorModelVisualizer:
 
-    def __init__(self, factor_models, labels=["1", "2", "3", "4"], colors=['blue', 'red', 'green', 'yellow'],
-                 error_bars_colors=['C0', 'C1', 'C2', 'C3']):
+    def __init__(self, factor_models, labels=None, colors=None,
+                 error_bars_colors=None):
 
         if isinstance(factor_models, FactorModel):
             self.__factor_models = [factor_models]
         else:
             self.__factor_models = factor_models
 
-        self.__labels = labels
-        self.__colors = colors
-        self.__error_bars_colors = error_bars_colors
+        self.__labels = labels if labels is not None else ["1", "2", "3", "4"]
+        self.__colors = colors if colors is not None \
+            else ['blue', 'red', 'green', 'yellow']
+        self.__error_bars_colors = error_bars_colors \
+            if error_bars_colors is not None else ['C0', 'C1', 'C2', 'C3']
 
         self.__fig = None
         self.__ax = None
@@ -231,22 +244,26 @@ class FactorModelVisualizer:
 
     ########################## PUBLIC ########################## 
 
-    def plot_realized_vs_predicted_average_return(self, min_return=0, max_return=1.5):
+    def plot_realized_vs_predicted_average_return(self, min_return=0,
+                                                  max_return=1.5):
 
         RETURN_STEP = 0.01
 
         # Set plot parameters
         self.__fig, self.__ax = plt.subplots(figsize=(16, 10))
 
-        self.__ax.set_title("Realized vs. predicted average return", fontsize=30)
+        self.__ax.set_title("Realized vs. predicted average return",
+                            fontsize=30)
         self.__ax.set_xlabel("Predicted average return", fontsize=30)
         self.__ax.set_ylabel("Realized average return", fontsize=30)
         self.__ax.set_xticks(np.arange(0, 2, step=0.2), fontsize=25)
         self.__ax.tick_params(axis='both', labelsize=25)
 
         # Plot predicted vs realized average returns
-        predicted_average_return_line_array = np.arange(min_return, max_return, RETURN_STEP)
-        self.__ax.plot(predicted_average_return_line_array, predicted_average_return_line_array, color='black',
+        predicted_average_return_line_array = np.arange(min_return, max_return,
+                                                        RETURN_STEP)
+        self.__ax.plot(predicted_average_return_line_array,
+                       predicted_average_return_line_array, color='black',
                        linewidth=2)
 
         labels_iter = iter(self.__labels)
@@ -262,7 +279,8 @@ class FactorModelVisualizer:
                                linestyle="None",
                                marker='.',
                                markersize=15,
-                               yerr=[factor_model.lower_error_bars, factor_model.upper_error_bars],
+                               yerr=[factor_model.lower_error_bars,
+                                     factor_model.upper_error_bars],
                                capsize=5,
                                color=error_bars_color,
                                markeredgecolor=color,
@@ -274,7 +292,8 @@ class FactorModelVisualizer:
             for i in range(len(factor_model.Y.columns)):
                 self.__ax.annotate(factor_model.Y.columns[i],
                                    (factor_model.predicted_average_returns[i],
-                                    factor_model.realized_average_returns[i] + 0.02),
+                                    factor_model.realized_average_returns[
+                                        i] + 0.02),
                                    fontsize=20)
 
         self.__ax.legend()
@@ -285,14 +304,16 @@ class FactorModelVisualizer:
         self.__check_factor_models_use_same_r_f()
         self.__check_factor_models_use_same_factors()
 
-        beta_array, sml_array = self.__calculate_sml(self.__factor_models[0].r_f,
-                                                     self.__factor_models[0].X.drop('const', axis=1).squeeze(),
-                                                     beta_min, beta_max)
+        beta_array, sml_array = self.__calculate_sml(
+            self.__factor_models[0].r_f,
+            self.__factor_models[0].X.drop('const', axis=1).squeeze(),
+            beta_min, beta_max)
 
         # Set up plot parameters
         self.__fig_sml, self.__ax_sml = plt.subplots(figsize=(16, 10))
 
-        self.__ax_sml.set_title("SML and average return against " + r"$\beta$", fontsize=30)
+        self.__ax_sml.set_title("SML and average return against " + r"$\beta$",
+                                fontsize=30)
         self.__ax_sml.set_xlabel(r"$\hat{\beta}$", fontsize=30)
         self.__ax_sml.set_ylabel("Realized average return", fontsize=30)
         self.__ax_sml.set_xticks(np.arange(0, 2, step=0.2), fontsize=25)
@@ -314,7 +335,8 @@ class FactorModelVisualizer:
                                    linestyle="None",
                                    marker='.',
                                    markersize=15,
-                                   yerr=[factor_model.lower_error_bars, factor_model.upper_error_bars],
+                                   yerr=[factor_model.lower_error_bars,
+                                         factor_model.upper_error_bars],
                                    capsize=5,
                                    color=error_bars_color,
                                    markeredgecolor=color,
@@ -324,10 +346,12 @@ class FactorModelVisualizer:
 
             # For loop to annotate all points
             for i in range(len(factor_model.Y.columns)):
-                estimated_betas_list = list(factor_model.estimated_betas.values())[i]
+                estimated_betas_list = \
+                    list(factor_model.estimated_betas.values())[i]
                 self.__ax_sml.annotate(factor_model.Y.columns[i],
                                        (estimated_betas_list,
-                                        factor_model.realized_average_returns[i] + 0.02),
+                                        factor_model.realized_average_returns[
+                                            i] + 0.02),
                                        fontsize=20)
 
         self.__ax_sml.legend()
@@ -341,7 +365,8 @@ class FactorModelVisualizer:
                 X = factor_model.X
             else:
                 if not factor_model.X.equals(X):
-                    raise ValueError("The factor models must use the same factors.")
+                    raise ValueError(
+                        "The factor models must use the same factors.")
 
     def __check_factor_models_use_same_r_f(self):
         r_f = None
@@ -350,12 +375,14 @@ class FactorModelVisualizer:
                 r_f = factor_model.r_f
             else:
                 if not factor_model.r_f.equals(r_f):
-                    raise ValueError("The factor models must use the same r_f.")
+                    raise ValueError(
+                        "The factor models must use the same r_f.")
 
     def __check_if_one_factor(self):
         for factor_model in self.__factor_models:
             if len(factor_model.X.columns) != 2:
-                raise ValueError("One of the factor models uses more than one factor.")
+                raise ValueError(
+                    "One of the factor models uses more than one factor.")
 
     def __calculate_sml(self, r_f, mkt_rf_series, beta_min=0, beta_max=2):
 
