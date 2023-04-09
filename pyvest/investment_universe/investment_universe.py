@@ -130,15 +130,18 @@ class InvestmentUniverse:
 
     ################################# PUBLIC FUNCTIONS #################################
 
-    def calculate_feasible_portfolios(self, nb_portfolios=20000):
+    def calculate_feasible_portfolios(self, nb_portfolios=20000,
+                                      return_portfolios=False):
         self.__feasible_portfolios = []
         for i in range(1, nb_portfolios):
             portfolio_weights = self.__add_random_portfolio_weights(
                 self.__min_weight)
-            portfolio = Portfolio(portfolio_weights, self.__mu, self.__cov)
+            portfolio = Portfolio(portfolio_weights, self.__mu, self.__cov,
+                                  assets=self.__assets)
             self.__feasible_portfolios.append(portfolio)
 
-        return self.__feasible_portfolios
+        if return_portfolios:
+            return self.__feasible_portfolios
 
     def calculate_mvp(self, x0=None):
 
@@ -160,7 +163,8 @@ class InvestmentUniverse:
             tol=self.__optimization_tolerance)
 
         # Assign results
-        self.__mvp = Portfolio(mvp_result.x, self.__mu, self.__cov)
+        self.__mvp = Portfolio(mvp_result.x, self.__mu, self.__cov,
+                               assets=self.__assets)
 
         return self.__mvp
 
@@ -197,7 +201,7 @@ class InvestmentUniverse:
         return efficient_portfolio
 
     def calculate_efficient_frontier(self, nb_portfolios=1000, x0=None,
-                                     tolerance=None):
+                                     tolerance=None, return_portfolios=False):
 
         tolerance = self.__optimization_tolerance if tolerance is None \
             else tolerance
@@ -220,7 +224,8 @@ class InvestmentUniverse:
                                                              tolerance)
             self.__efficient_frontier.append(efficient_portfolio)
 
-        return self.__efficient_frontier
+        if return_portfolios:
+            return self.__efficient_frontier
 
     def calculate_tangency_portfolio(self, x0=None):
 
@@ -230,6 +235,10 @@ class InvestmentUniverse:
         # Initial guess (seed value)
         if x0 is None:
             x0 = np.ones(self.__nb_assets) / self.__nb_assets
+
+        # Sum portfolio weights equals 1 constraint
+        self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
+            np.ones(self.__nb_assets), 1, 1)
 
         tangency_portfolio_result = minimize(
             lambda x: -calculate_portfolio_sharpe_ratio(x, self.__mu,
@@ -242,12 +251,13 @@ class InvestmentUniverse:
 
         tangency_portfolio_weights = tangency_portfolio_result.x
         self.__tangency_portfolio = Portfolio(tangency_portfolio_weights,
-                                              self.__mu, self.__cov)
+                                              self.__mu, self.__cov,
+                                              assets=self.__assets)
 
         return self.__tangency_portfolio
 
     def calculate_cal(self, min_fraction_tangency=0, max_fraction_tangency=3,
-                      step_fraction_tangency=0.001):
+                      step_fraction_tangency=0.001, return_portfolios=False):
 
         if not self.__tangency_portfolio:
             self.calculate_tangency_portfolio()
@@ -260,42 +270,65 @@ class InvestmentUniverse:
                 (tangency_weight * self.__tangency_portfolio.weights,
                  [1 - tangency_weight]))
             cal_portfolio = Portfolio(cal_portfolio_weights, self.__mu,
-                                      self.__cov, self.__r_f)
+                                      self.__cov, self.__r_f,
+                                      assets=self.__assets)
             self.__cal.append(cal_portfolio)
 
-        return self.__cal
+        if return_portfolios:
+            return self.__cal
 
     def calculate_portfolio(self, portfolio, name=None):
 
         if isinstance(portfolio, Portfolio):
             portfolio_obj = portfolio
-        elif isinstance(portfolio, list) and len(
-                portfolio) == self.__nb_assets:
-            portfolio_obj = Portfolio(portfolio, self.__mu, self.__cov)
+        elif (isinstance(portfolio, list)
+              or isinstance(portfolio, np.ndarray)
+              or isinstance(portfolio, tuple)) \
+                and len(portfolio) == self.__nb_assets:
+            portfolio_obj = Portfolio(portfolio, self.__mu, self.__cov,
+                                      assets=self.__assets)
         else:
             raise TypeError("The variable 'portfolio' must be an object of "
-                            "type Portfolio or a list of weights.")
+                            "type Portfolio or a list of weights of dimension "
+                            "{}.".format(self.__nb_assets))
 
         if self.__other_portfolios is None:
             self.__other_portfolios = {}
-        if name is None:
-            name = "Ptf " + str(len(self.__other_portfolios) + 1)
-        self.__other_portfolios[name] = portfolio_obj
+        # if name is None:
+        #     name = "Ptf " + str(len(self.__other_portfolios) + 1)
+        self.__other_portfolios[tuple(portfolio_obj.weights)] = \
+            (portfolio_obj, name)
 
         return portfolio_obj
 
-    def remove_other_portfolios(self, name=None):
-        if name is None:
+    def remove_portfolio(self, portfolio=None):
+        if portfolio is None:
             self.__other_portfolios = None
+        elif isinstance(portfolio, list) or isinstance(portfolio, tuple) \
+                or isinstance(portfolio, np.ndarray):
+            del self.__other_portfolios[tuple(portfolio)]
+        elif isinstance(portfolio, Portfolio):
+            del self.__other_portfolios[portfolio.weights]
+        elif isinstance(portfolio, str):
+            keys_to_delete = []
+            for key, value in self.__other_portfolios.items():
+                if value[1] == portfolio:
+                    keys_to_delete.append(key)
+            for key in keys_to_delete:
+                del self.__other_portfolios[key]
         else:
-            del self.__other_portfolios[name]
+            raise TypeError("The parameter 'portfolio' must be either a "
+                            "Portfolio, a list of weights, or a string!")
 
-    def plot(self, compare_with=None, labels=None, weights_visible=True):
+    def plot(self, compare_with=None, labels=None, weights_visible=True,
+             zoom_individual=False, min_mu=None, max_mu=None, min_std=None,
+             max_std=None):
         investment_universes = [self]
         if isinstance(compare_with, InvestmentUniverse):
             investment_universes.append(compare_with)
         elif isinstance(compare_with, list):
             investment_universes.extend(compare_with)
+
         if self.__visualizer is None:
             self.__visualizer = InvestmentUniverseVisualizer(
                 investment_universes, labels=labels,
@@ -303,7 +336,9 @@ class InvestmentUniverse:
         else:
             self.__visualizer.investment_universes = investment_universes
             self.__visualizer.labels = labels
-        self.__visualizer.plot()
+            self.__visualizer.reset_colors()
+        self.__visualizer.plot(zoom_individual=zoom_individual, min_mu=min_mu,
+                               max_mu=max_mu, min_std=min_std, max_std=max_std)
 
     ########################## PRIVATE ##########################
 
@@ -388,7 +423,8 @@ class InvestmentUniverse:
                 .format(self.__min_weight_bound, mu))
         efficient_portfolio_weights = efficient_portfolio_result.x
         efficient_portfolio = Portfolio(efficient_portfolio_weights,
-                                        self.__mu, self.__cov)
+                                        self.__mu, self.__cov,
+                                        assets=self.__assets)
 
         return efficient_portfolio
 

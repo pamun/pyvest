@@ -41,11 +41,11 @@ class InvestmentUniverseVisualizer:
         self.__set_default_visibility(default_visibility)
         self.__weights_visible = weights_visible
 
-        self.__calculate_visible_portfolios_mu_std()
-        self.__set_default_std_limits()
-        self.__set_default_mu_limits()
+        # self.__calculate_visible_portfolios_mu_std()
+        # self.__set_default_std_limits()
+        # self.__set_default_mu_limits()
 
-        self.__set_default_colors()
+        self.reset_colors()
         self.__set_default_visual_elements_properties()
 
         self.__visual_elements_list = None
@@ -199,9 +199,33 @@ class InvestmentUniverseVisualizer:
     def ax(self):
         return self.__ax
 
-    ################################# PUBLIC FUNCTIONS #################################
+    ##################### colors ###################
+    @property
+    def colors(self):
+        return self.__colors
 
-    def plot(self, figsize=(16, 9)):
+    ##################### visual_elements_properties ###################
+    @property
+    def visual_elements_properties(self):
+        return self.__visual_elements_properties
+
+    ######################### PUBLIC FUNCTIONS ########################
+
+    def plot(self, figsize=(16, 9), zoom_individual=False, min_mu=None,
+             max_mu=None, min_std=None, max_std=None):
+
+        self.__calculate_visible_portfolios_mu_std(zoom_individual)
+        self.__set_default_std_limits()
+        self.__set_default_mu_limits()
+
+        if min_mu is not None:
+            self.__min_mu = min_mu
+        if max_mu is not None:
+            self.__max_mu = max_mu
+        if min_std is not None:
+            self.__min_std = min_std
+        if max_std is not None:
+            self.__max_std = max_std
 
         self.__fig, self.__ax = plt.subplots(figsize=figsize)
 
@@ -210,7 +234,7 @@ class InvestmentUniverseVisualizer:
         self.__ax.grid()
 
         self.__ax.set_title("Risk-return tradeoff", fontsize=35)
-        self.__ax.set_ylabel("Expected returns", fontsize=30)
+        self.__ax.set_ylabel("Expected return", fontsize=30)
         self.__ax.set_xlabel("Standard deviation", fontsize=30)
         self.__ax.tick_params(axis='both', labelsize=25)
 
@@ -221,7 +245,8 @@ class InvestmentUniverseVisualizer:
         for vis_elem in sorted_visual_elements:
             vis_elem.plot()
 
-        self.__ax.legend(fontsize=15)
+        self.__ax.legend(fontsize=15, loc='upper left')
+        # self.__ax.legend(fontsize=15)
 
     ########################## PRIVATE ##########################
 
@@ -235,23 +260,27 @@ class InvestmentUniverseVisualizer:
         self.__r_f_visible = default_visibility
         self.__other_portfolios_visible = default_visibility
 
-    def __set_default_mu_limits(self, default_border=0.1):
+    def __set_default_mu_limits(self, border_padding=0.1):
 
         mu_list = [mu for mu, std in self.__visible_portfolios_mu_std_list]
-        border_abs_value = default_border * max(mu_list)
+        border_abs_value = border_padding * max(mu_list)
 
-        self.__min_mu = min(0, min(mu_list) - border_abs_value)
+        self.__min_mu = 0 if min(mu_list) >= 0 \
+            else min(mu_list) - border_abs_value
+        # self.__min_mu = min(0, min(mu_list) - border_abs_value)
         self.__max_mu = max(mu_list) + border_abs_value
 
-    def __set_default_std_limits(self, default_border=0.1):
+    def __set_default_std_limits(self, border_padding=0.1):
 
         std_list = [std for mu, std in self.__visible_portfolios_mu_std_list]
-        border_abs_value = default_border * max(std_list)
+        border_abs_value = border_padding * max(std_list)
 
-        self.__min_std = min(0, min(std_list) - border_abs_value)
+        self.__min_std = 0 if min(std_list) >= 0 \
+            else min(std_list) - border_abs_value
+        # self.__min_std = min(0, min(std_list) - border_abs_value)
         self.__max_std = max(std_list) + border_abs_value
 
-    def __calculate_visible_portfolios_mu_std(self):
+    def __calculate_visible_portfolios_mu_std(self, zoom_individual):
         self.__visible_portfolios_mu_std_list = []
 
         remaining_ptfs_list = []
@@ -263,8 +292,16 @@ class InvestmentUniverseVisualizer:
             if inv_uni.tangency_portfolio is not None:
                 remaining_ptfs_list.append(inv_uni.tangency_portfolio)
             if inv_uni.other_portfolios is not None:
-                other_portfolios = list(inv_uni.other_portfolios.values())
+                other_portfolios = [ptf_name_pair[0] for ptf_name_pair
+                                    in list(inv_uni.other_portfolios.values())]
                 remaining_ptfs_list.extend(other_portfolios)
+
+            if not zoom_individual \
+                    and inv_uni.efficient_frontier is not None:
+                remaining_ptfs_list.extend(inv_uni.efficient_frontier)
+            if not zoom_individual \
+                    and inv_uni.feasible_portfolios is not None:
+                remaining_ptfs_list.extend(inv_uni.feasible_portfolios)
 
         self.__visible_portfolios_mu_std_list.extend(
             [(ptf.expected_return, ptf.standard_deviation) for ptf
@@ -277,12 +314,13 @@ class InvestmentUniverseVisualizer:
             self.__investment_universes = investment_universes
 
     def __assign_labels(self, labels):
+        generic_labels = ["1", "2", "3", "4"]
         if labels is None and len(self.__investment_universes) > 1:
-            self.__labels = ["1", "2", "3", "4"]
+            self.__labels = generic_labels
         elif labels is None:
             self.__labels = []
         else:
-            self.__labels = labels
+            self.__labels = labels + generic_labels[len(labels):]
 
     def __generate_assets_inv_univ_dict(self):
         self.__assets_inv_univ_dict = {}
@@ -324,7 +362,6 @@ class InvestmentUniverseVisualizer:
         efficient_portfolios_std_list = list(
             map(lambda x: x.standard_deviation,
                 investment_universe.efficient_frontier))
-        legend_label = self.__complete_label("Efficient frontier", label)
         self.__ax.scatter(efficient_portfolios_std_list,
                           efficient_portfolios_mu_list, color=color, s=size)
 
@@ -341,7 +378,7 @@ class InvestmentUniverseVisualizer:
         self.__ax.scatter(cal_portfolios_std_list, cal_portfolios_mu_list,
                           s=size, label=legend_label, color=color)
 
-    def __plot_assets(self, label, size=200):
+    def __plot_assets(self, label, size=200, nb_decimal_places=2):
         # TODO: Make it more general
         color_label = label if label is not None else "1"
         color_iter = iter(self.__colors[color_label]["assets"])
@@ -355,12 +392,17 @@ class InvestmentUniverseVisualizer:
                               label=inv_univ.assets[asset_index],
                               color=color)
 
-    def __plot_mvp(self, investment_universe, label, size=200):
+    def __plot_mvp(self, investment_universe, label, size=200,
+                   nb_decimal_places=2):
         # TODO: Make it more general
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["mvp"]
 
-        legend_label = self.__complete_label("MVP", label)
+        weights = str([("{:." + str(nb_decimal_places) + "f}").format(
+            round(weight, nb_decimal_places)) for weight
+            in investment_universe.mvp.weights]).replace("'", "")
+
+        legend_label = self.__complete_label("MVP - " + weights, label)
         self.__ax.scatter(investment_universe.mvp.standard_deviation,
                           investment_universe.mvp.expected_return, s=size,
                           label=legend_label, color=color)
@@ -370,31 +412,52 @@ class InvestmentUniverseVisualizer:
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["r_f"]
 
-        legend_label = self.__complete_label("Risk-free rate", label)
         self.__ax.scatter(0, investment_universe.r_f, s=size, color=color)
 
-    def __plot_tangency_portfolio(self, investment_universe, label, size=200):
+    def __plot_tangency_portfolio(self, investment_universe, label, size=200,
+                                  nb_decimal_places=2):
         # TODO: Make it more general
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["tangency"]
 
-        legend_label = self.__complete_label("Tangency portfolio", label)
+        weights = str([("{:." + str(nb_decimal_places) + "f}").format(
+            round(weight, nb_decimal_places)) for weight
+            in investment_universe.tangency_portfolio.weights]).replace(
+            "'", "")
+
+        legend_label = self.__complete_label("Tangency portfolio - " + weights, label)
         self.__ax.scatter(
             investment_universe.tangency_portfolio.standard_deviation,
             investment_universe.tangency_portfolio.expected_return, s=size,
             label=legend_label, color=color)
 
-    def __plot_other_portfolios(self, investment_universe, label, size=200):
+    def __plot_other_portfolios(self, investment_universe, label, size=200,
+                                nb_decimal_places=2):
         # TODO: Make it more general
         color_label = label if label is not None else "1"
         color_iter = iter(self.__colors[color_label]["others"])
 
-        for portfolio_name, portfolio in investment_universe.other_portfolios.items():
-            color = next(color_iter)
-            weights = [round(weight, 2) for weight in portfolio.weights]
-            name_weights = portfolio_name + " - " + str(weights) \
-                if self.__weights_visible else portfolio_name
+        for portfolio_weights, portfolio_with_name_pair \
+                in investment_universe.other_portfolios.items():
+            portfolio = portfolio_with_name_pair[0]
+            portfolio_name = portfolio_with_name_pair[1]
+
+            # weights = [round(weight, 2) for weight in portfolio.weights]
+
+            weights = str([("{:." + str(nb_decimal_places)
+                            + "f}").format(round(weight, nb_decimal_places))
+                           for weight in portfolio_weights]).replace("'", "")
+
+            if portfolio_name is not None:
+                name_weights = portfolio_name + " - " + str(weights) \
+                    if self.__weights_visible else portfolio_name
+            else:
+                name_weights = str(weights)
+
             legend_label = self.__complete_label(name_weights, label)
+
+            color = next(color_iter)
+
             self.__ax.scatter(portfolio.standard_deviation,
                               portfolio.expected_return, s=size,
                               label=legend_label, color=color)
@@ -410,7 +473,7 @@ class InvestmentUniverseVisualizer:
 
         return completed_legend_label
 
-    def __set_default_colors(self):
+    def reset_colors(self):
 
         tab20_cmap = matplotlib.cm.tab20
         tab20b_cmap = matplotlib.cm.tab20b
@@ -441,10 +504,46 @@ class InvestmentUniverseVisualizer:
                 accent_cmap(i) for i in range(0, 8)]
         }
 
-        self.__colors = {
-            "1": colors1,
-            "2": colors2
+        # TODO: Modify colors3 and colors4 so that the colors are all
+        #  different from colors1 and colors2
+        colors3 = {
+            'feasible': tab20_cmap(2),
+            'mvp': tab20_cmap(8),
+            'efficient': 'black',
+            'tangency': tab20_cmap(9),
+            'r_f': 'black',
+            'cal': tab20_cmap(10),
+            'assets': [tab20b_cmap(i) for i in range(3, 20, 4)],
+            'others': [dark2_cmap(i) for i in range(0, 8)] + [
+                accent_cmap(i) for i in range(0, 8)]
         }
+
+        colors4 = {
+            'feasible': accent_cmap(0),
+            'mvp': accent_cmap(1),
+            'efficient': 'black',
+            'tangency': accent_cmap(2),
+            'r_f': 'black',
+            'cal': accent_cmap(3),
+            'assets': [tab20b_cmap(i) for i in range(1, 20, 4)],
+            'others': [dark2_cmap(i) for i in range(4, 8)] + [
+                accent_cmap(i) for i in range(4, 8)]
+        }
+
+        if len(self.__labels) > 0:
+            self.__colors = {
+                self.__labels[0]: colors1,
+                self.__labels[1]: colors2,
+                self.__labels[2]: colors3,
+                self.__labels[3]: colors4
+            }
+        else:
+            self.__colors = {
+                "1": colors1,
+                "2": colors2,
+                "3": colors3,
+                "4": colors4
+            }
 
     def __set_default_visual_elements_properties(self):
 
@@ -495,10 +594,12 @@ class InvestmentUniverseVisualizer:
 
         assets_properties = self.__visual_elements_properties["assets"]
         if self.__assets_visible:
+            assets_label = self.__labels[0] if len(self.__labels) > 0 else None
             self.__visual_elements_list.append(
                 self.VisualElement(self.__plot_assets,
                                    assets_properties["priority"],
-                                   assets_properties["size"]))
+                                   assets_properties["size"],
+                                   label=assets_label))
 
         inv_univ_index = 0
         labels_iter = iter(self.__labels)

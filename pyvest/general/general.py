@@ -71,23 +71,36 @@ def get_monthly_returns(tickers_list, start_date, end_date):
 class Portfolio:
 
     def __init__(self, weights, mu, cov, r_f=None, expense_ratios=None,
-                 expense_ratio_r_f=None):
+                 expense_ratio_r_f=None, assets=None):
 
         self.__mu = np.array(mu)
         self.__cov = np.array(cov)
         self.__r_f = r_f
         self.__assign_weights(weights, r_f)
         self.__assign_expense_ratios(expense_ratios, expense_ratio_r_f)
+        self.__assets = assets
+
+        if self.__assets is not None:
+            self.__assets_weights = {asset: weight for (asset, weight)
+                                     in zip(self.__assets, self.__weights)}
+        else:
+            self.__assets_weights = list(self.__weights)
 
     def __repr__(self):
-        return "weights: {}\nexpected returns: {}\nstandard deviation: " \
-               "{}".format(str(self.__weights), str(self.expected_return),
-                           str(self.standard_deviation))
+
+        output = "weights: {}\nexpected return: {}\nstandard deviation: " \
+                   "{}".format(str(self.__assets_weights),
+                               str(self.expected_return),
+                               str(self.standard_deviation))
+        return output
 
     def __str__(self):
-        return "weights: {}\nexpected returns: {}\nstandard deviation: " \
-               "{}".format(str(self.__weights), str(self.expected_return),
-                           str(self.standard_deviation))
+
+        output = "weights: {}\nexpected return: {}\nstandard deviation: " \
+                 "{}".format(str(self.__assets_weights),
+                             str(self.expected_return),
+                             str(self.standard_deviation))
+        return output
 
     ##################### mu ###################    
     @property
@@ -199,7 +212,7 @@ class Portfolio:
 
         if self.__r_f is not None:
             self.__augmented_mu = np.concatenate((self.__mu,
-                                                     [self.__r_f]))
+                                                  [self.__r_f]))
             self.__augmented_weights = self.__weights
         else:
             self.__augmented_mu = np.concatenate((self.__mu, [0.0]))
@@ -208,9 +221,9 @@ class Portfolio:
         zeros_column = (np.zeros((len(self.__cov), 1)))
         zeros_row = (np.zeros((1, len(self.__cov) + 1)))
         self.__augmented_cov = np.concatenate((np.concatenate((self.__cov,
-                                                                 zeros_column),
-                                                                axis=1),
-                                                 zeros_row))
+                                                               zeros_column),
+                                                              axis=1),
+                                               zeros_row))
 
         return self.__weights
 
@@ -243,7 +256,7 @@ class Portfolio:
         return self.__expense_ratios, self.__expense_ratio_r_f
 
     def __calculate_effective_mu(self, augmented_mu, expense_ratios,
-                                    expense_ratio_r_f):
+                                 expense_ratio_r_f):
 
         effective_mu = augmented_mu.copy()
         if expense_ratios is not None:

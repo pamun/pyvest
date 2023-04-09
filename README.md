@@ -1,6 +1,7 @@
 # PyVest
 
-PyVest is a Python library that provides tools for investment.
+PyVest is a Python library that provides tools for investment 
+analysis.
 
 ## Risk-return trade-off graph
 
