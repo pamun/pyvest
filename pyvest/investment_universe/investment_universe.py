@@ -149,22 +149,21 @@ class InvestmentUniverse:
         if x0 is None:
             x0 = np.ones(self.__nb_assets) / self.__nb_assets
 
-        # Sum portfolio weights equals 1 constraint
-        self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
-            np.ones(self.__nb_assets), 1, 1)
-        self.__min_weight_bound = Bounds(self.__min_weight, np.inf)
-
-        # Minimize
-        mvp_result = minimize(
-            lambda x: calculate_portfolio_standard_deviation(x, self.__cov),
-            x0,
-            bounds=self.__min_weight_bound,
-            constraints=[self.__sum_weights_assets_equals_one_constraint],
-            tol=self.__optimization_tolerance)
+        # # Sum portfolio weights equals 1 constraint
+        # self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
+        #     np.ones(self.__nb_assets), 1, 1)
+        # self.__min_weight_bound = Bounds(self.__min_weight, np.inf)
+        #
+        # # Minimize
+        # mvp_result = minimize(
+        #     lambda x: calculate_portfolio_standard_deviation(x, self.__cov),
+        #     x0,
+        #     bounds=self.__min_weight_bound,
+        #     constraints=[self.__sum_weights_assets_equals_one_constraint],
+        #     tol=self.__optimization_tolerance)
 
         # Assign results
-        self.__mvp = Portfolio(mvp_result.x, self.__mu, self.__cov,
-                               assets=self.__assets)
+        self.__mvp = self.__calculate_mvp(x0)
 
         return self.__mvp
 
@@ -177,10 +176,9 @@ class InvestmentUniverse:
         if x0 is None:
             x0 = np.ones(self.__nb_assets) / self.__nb_assets
 
-        if not self.__mvp:
-            self.calculate_mvp(x0)
+        mvp = self.__calculate_mvp(x0) if not self.__mvp else self.__mvp
 
-        self.__calculate_efficient_mu_min_max()
+        self.__calculate_efficient_mu_min_max(mvp)
 
         if mu is not None and sigma is not None:
             raise ValueError("Only one of 'mu' and 'sigma' must be passed as "
@@ -210,10 +208,9 @@ class InvestmentUniverse:
         if x0 is None:
             x0 = np.ones(self.__nb_assets) / self.__nb_assets
 
-        if not self.__mvp:
-            self.calculate_mvp(x0)
+        mvp = self.__calculate_mvp(x0) if not self.__mvp else self.__mvp
 
-        self.__calculate_efficient_mu_min_max()
+        self.__calculate_efficient_mu_min_max(mvp)
         efficient_mu_array = self.__calculate_efficient_mu_array(nb_portfolios)
 
         # Calculate the efficient portfolios
@@ -386,13 +383,31 @@ class InvestmentUniverse:
         self.__std = np.array(std)
         return self.__std
 
-    def __calculate_efficient_mu_min_max(self):
+    def __calculate_mvp(self, x0):
+
+        # Sum portfolio weights equals 1 constraint
+        self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
+            np.ones(self.__nb_assets), 1, 1)
+        self.__min_weight_bound = Bounds(self.__min_weight, np.inf)
+
+        # Minimize
+        mvp_result = minimize(
+            lambda x: calculate_portfolio_standard_deviation(x, self.__cov),
+            x0,
+            bounds=self.__min_weight_bound,
+            constraints=[self.__sum_weights_assets_equals_one_constraint],
+            tol=self.__optimization_tolerance)
+
+        return Portfolio(mvp_result.x, self.__mu, self.__cov,
+                         assets=self.__assets)
+
+    def __calculate_efficient_mu_min_max(self, mvp):
         mu_argmax = np.argmax(self.__mu)
         mu_max = self.__mu[mu_argmax]
         others_mu = np.delete(self.__mu, mu_argmax)
         others_min_weight = np.delete(self.__min_weight, mu_argmax)
 
-        self.__efficient_mu_min = self.__mvp.expected_return
+        self.__efficient_mu_min = mvp.expected_return
         self.__efficient_mu_max = (1 - sum(
             others_min_weight)) * mu_max + np.dot(
             others_mu, others_min_weight)
