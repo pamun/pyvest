@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy as np
 
 import pyvest
 
@@ -40,10 +41,6 @@ class InvestmentUniverseVisualizer:
 
         self.__set_default_visibility(default_visibility)
         self.__weights_visible = weights_visible
-
-        # self.__calculate_visible_portfolios_mu_std()
-        # self.__set_default_std_limits()
-        # self.__set_default_mu_limits()
 
         self.reset_colors()
         self.__set_default_visual_elements_properties()
@@ -387,9 +384,18 @@ class InvestmentUniverseVisualizer:
                 in self.__assets_inv_univ_dict.items():
             inv_univ = self.__investment_universes[inv_univ_index]
             color = next(color_iter)
+
+            weights = np.zeros(len(inv_univ.assets))
+            weights[asset_index] = 1
+            weights_str = str([("{:." + str(nb_decimal_places) + "f}").format(
+                round(weight, nb_decimal_places)) for weight
+                in weights]).replace("'", "")
+
+            legend_label = inv_univ.assets[asset_index] + " - " + weights_str
+
             self.__ax.scatter(inv_univ.std[asset_index],
                               inv_univ.mu[asset_index], s=size,
-                              label=inv_univ.assets[asset_index],
+                              label=legend_label,
                               color=color)
 
     def __plot_mvp(self, investment_universe, label, size=200,

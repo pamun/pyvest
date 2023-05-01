@@ -149,19 +149,6 @@ class InvestmentUniverse:
         if x0 is None:
             x0 = np.ones(self.__nb_assets) / self.__nb_assets
 
-        # # Sum portfolio weights equals 1 constraint
-        # self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
-        #     np.ones(self.__nb_assets), 1, 1)
-        # self.__min_weight_bound = Bounds(self.__min_weight, np.inf)
-        #
-        # # Minimize
-        # mvp_result = minimize(
-        #     lambda x: calculate_portfolio_standard_deviation(x, self.__cov),
-        #     x0,
-        #     bounds=self.__min_weight_bound,
-        #     constraints=[self.__sum_weights_assets_equals_one_constraint],
-        #     tol=self.__optimization_tolerance)
-
         # Assign results
         self.__mvp = self.__calculate_mvp(x0)
 
