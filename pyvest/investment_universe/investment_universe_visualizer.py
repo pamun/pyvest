@@ -51,7 +51,7 @@ class InvestmentUniverseVisualizer:
 
     @property
     def assets_visible(self):
-        return self.__cal_visible
+        return self.__assets_visible
 
     @assets_visible.setter
     def assets_visible(self, value):
