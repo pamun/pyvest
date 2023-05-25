@@ -1,5 +1,5 @@
-import finlib.general as finance
-from finlib.investment_universe import InvestmentUniverse, \
+import pyvest.general.general as finance
+from pyvest.investment_universe.investment_universe import InvestmentUniverse, \
     InvestmentUniverseVisualizer
 
 import matplotlib.pyplot as plt
@@ -41,29 +41,29 @@ print("r_bar2={}, sigma2={}".format(r_bar2, sigma2))
 investment_universe = InvestmentUniverse(tickers_list, r_bar, sigma, r_f=0.005,
                                          min_weight=-0.5,
                                          optimization_tolerance=1e-8)
-investment_universe.add_feasible_portfolios(nb_portfolios=20000)
+investment_universe.calculate_feasible_portfolios(nb_portfolios=20000)
 print("add_feasible_portfolios")
-investment_universe.add_mvp()
+investment_universe.calculate_mvp()
 print("add_mvp")
-investment_universe.add_efficient_frontier()
+investment_universe.calculate_efficient_frontier()
 print("add_efficient_frontier")
-investment_universe.add_tangency_portfolio()
+investment_universe.calculate_tangency_portfolio()
 print("add_tangency_portfolio")
-investment_universe.add_cal()
+investment_universe.calculate_cal()
 print("add_cal")
 
 investment_universe2 = InvestmentUniverse(tickers2_list, r_bar2, sigma2,
                                           r_f=0.5, min_weight=-0.5,
                                           optimization_tolerance=1e-8)
-investment_universe2.add_feasible_portfolios(nb_portfolios=50000)
+investment_universe2.calculate_feasible_portfolios(nb_portfolios=50000)
 print("add_feasible_portfolios")
-investment_universe2.add_mvp()
+investment_universe2.calculate_mvp()
 print("add_mvp")
-investment_universe2.add_efficient_frontier()
+investment_universe2.calculate_efficient_frontier()
 print("add_efficient_frontier")
-investment_universe2.add_tangency_portfolio()
+investment_universe2.calculate_tangency_portfolio()
 print("add_tangency_portfolio")
-investment_universe2.add_cal()
+investment_universe2.calculate_cal()
 print("add_cal")
 
 # InvestmentUniverseVisualizer
