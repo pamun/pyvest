@@ -1,5 +1,5 @@
-from pyvest.investment_universe.investment_universe import InvestmentUniverse
-from pyvest.general.general import Portfolio
+# from pyvest.investment_universe.investment_universe import InvestmentUniverse
+from pyvest.general.portfolio import Portfolio
 from pyvest.general.general import standard_utility_function
 
 import numpy as np
@@ -11,13 +11,16 @@ from scipy.optimize import Bounds
 
 class Investor:
 
-    def __init__(self, investment_universe, gamma, utility_function=None,
+    def __init__(self, investment_universe=None, wealth=0, weights=None,
+                 gamma=None, utility_function=None,
                  optimization_tolerance=1e-6):
 
         self.__assign_investment_universe(investment_universe)
         self.__assign_gamma(gamma)
         self.__assign_utility_function(utility_function)
         self.__assign_optimization_tolerance(optimization_tolerance)
+        self.__assign_wealth(wealth)
+        self.__assign_weights(weights)
 
         self.__optimal_portfolio = None
 
@@ -46,6 +49,22 @@ class Investor:
     @gamma.setter
     def gamma(self, value):
         self.__assign_gamma(value)
+
+    @property
+    def wealth(self):
+        return self.__wealth
+
+    @wealth.setter
+    def wealth(self, value):
+        self.__assign_wealth(value)
+
+    @property
+    def weights(self):
+        return self.__weights
+
+    @weights.setter
+    def weights(self, value):
+        self.__assign_weights(value)
 
     @property
     def optimal_portfolio(self):
@@ -82,14 +101,18 @@ class Investor:
 
         return self.__optimal_portfolio
 
+    def plot_indifference_curves(self, compare_with=None):
+        pass
+
     ################################ PRIVATE ##################################
 
     def __assign_investment_universe(self, investment_universe):
-        if isinstance(investment_universe, InvestmentUniverse):
-            self.__investment_universe = investment_universe
-        else:
-            raise TypeError("The variable 'investment_universe' must be an "
-                            "instance of InvestmentUniverse.")
+        self.__investment_universe = investment_universe
+        # if isinstance(investment_universe, InvestmentUniverse):
+        #     self.__investment_universe = investment_universe
+        # else:
+        #     raise TypeError("The parameter 'investment_universe' must be an "
+        #                     "instance of InvestmentUniverse.")
 
     def __assign_utility_function(self, utility_function):
         if utility_function is None:
@@ -97,19 +120,35 @@ class Investor:
         elif callable(utility_function):
             self.__utility_function = utility_function
         else:
-            raise TypeError("The variable 'utility_function' must be "
+            raise TypeError("The parameter 'utility_function' must be "
                             "callable.")
 
     def __assign_gamma(self, gamma):
-        if type(gamma) is float or type(gamma) is int:
-            self.__gamma = gamma
+        if gamma is None:
+            self.__gamma = None
+        elif type(gamma) is float or type(gamma) is int:
+            self.__gamma = float(gamma)
         else:
-            raise TypeError("The variable 'gamma' must be of type float or "
+            raise TypeError("The parameter 'gamma' must be None or of type "
+                            "float or int.")
+
+    def __assign_wealth(self, wealth):
+        if type(wealth) is float or type(wealth) is int:
+            self.__wealth = float(wealth)
+        else:
+            raise TypeError("The parameter 'wealth' must be of type float or "
                             "int.")
+
+    def __assign_weights(self, weights):
+        if weights is None or type(weights) is list:
+            self.__weights = weights
+        else:
+            raise TypeError("The parameter 'weights' must be None or of type "
+                            "list.")
 
     def __assign_optimization_tolerance(self, optimization_tolerance):
         if type(optimization_tolerance) is float:
             self.__optimization_tolerance = optimization_tolerance
         else:
-            raise TypeError("The variable 'optimization_tolerance' must be of "
-                            "type float.")
+            raise TypeError("The parameter 'optimization_tolerance' must be "
+                            "of type float.")
