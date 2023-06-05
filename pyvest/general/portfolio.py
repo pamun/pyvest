@@ -153,16 +153,19 @@ class Portfolio:
             self.__augmented_mu = np.concatenate((self.__mu,
                                                   [self.__r_f]))
             self.__augmented_weights = self.__weights
-        else:
-            self.__augmented_mu = np.concatenate((self.__mu, [0.0]))
-            self.__augmented_weights = np.concatenate((self.__weights, [0.0]))
 
-        zeros_column = (np.zeros((len(self.__cov), 1)))
-        zeros_row = (np.zeros((1, len(self.__cov) + 1)))
-        self.__augmented_cov = np.concatenate((np.concatenate((self.__cov,
-                                                               zeros_column),
-                                                              axis=1),
-                                               zeros_row))
+            zeros_column = (np.zeros((len(self.__cov), 1)))
+            zeros_row = (np.zeros((1, len(self.__cov) + 1)))
+            self.__augmented_cov = \
+                np.concatenate(
+                    (np.concatenate((self.__cov, zeros_column), axis=1),
+                     zeros_row))
+        else:
+            # self.__augmented_mu = np.concatenate((self.__mu, [0.0]))
+            # self.__augmented_weights = np.concatenate((self.__weights, [0.0]))
+            self.__augmented_mu = self.__mu
+            self.__augmented_weights = self.__weights
+            self.__augmented_cov = self.__cov
 
         return self.__weights
 
