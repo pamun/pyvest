@@ -54,6 +54,7 @@ class InvestmentUniverseVisualizer:
         self.__set_default_visual_elements_properties()
 
         self.__visual_elements_list = None
+        self.__investors_colors = {}
 
     ################################# ATTRIBUTES #################################
 
@@ -65,6 +66,15 @@ class InvestmentUniverseVisualizer:
     def assets_visible(self, value):
         self.__check_bool(value, "assets_visible")
         self.__assets_visible = value
+
+    @property
+    def feasible_portfolios_with_r_f_visible(self):
+        return self.__feasible_portfolios_with_r_f_visible
+
+    @feasible_portfolios_with_r_f_visible.setter
+    def feasible_portfolios_with_r_f_visible(self, value):
+        self.__check_bool(value, "feasible_portfolios_with_r_f_visible")
+        self.__feasible_portfolios_with_r_f_visible = value
 
     @property
     def feasible_portfolios_visible(self):
@@ -284,6 +294,7 @@ class InvestmentUniverseVisualizer:
     def __set_default_visibility(self, default_visibility):
         self.__assets_visible = default_visibility
         self.__feasible_portfolios_visible = default_visibility
+        self.__feasible_portfolios_with_r_f_visible = default_visibility
         self.__mvp_visible = default_visibility
         self.__efficient_frontier_visible = default_visibility
         self.__tangency_portfolio_visible = default_visibility
@@ -381,6 +392,27 @@ class InvestmentUniverseVisualizer:
                                                 investment_universe.feasible_portfolios))
 
         legend_label = self.__complete_label("Feasible portfolios", label)
+        self.__ax.scatter(feasible_portfolios_std_list,
+                          feasible_portfolios_mu_list,
+                          s=size,
+                          alpha=self.__alpha,
+                          label=legend_label,
+                          color=color)
+
+    def __plot_feasible_portfolios_with_r_f(self, investment_universe, label,
+                                            size):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["feasible_with_r_f"]
+
+        feasible_portfolios_mu_list = \
+            list(map(lambda x: x.expected_return,
+                     investment_universe.feasible_portfolios_with_r_f))
+        feasible_portfolios_std_list = \
+            list(map(lambda x: x.standard_deviation,
+                     investment_universe.feasible_portfolios_with_r_f))
+
+        legend_label = self.__complete_label("Feasible portfolios with r_f",
+                                             label)
         self.__ax.scatter(feasible_portfolios_std_list,
                           feasible_portfolios_mu_list,
                           s=size,
@@ -526,8 +558,6 @@ class InvestmentUniverseVisualizer:
 
     def __plot_investors_portfolio(self, investment_universe, investor_names,
                                    label, size=200):
-        color_label = label if label is not None else "1"
-        color_iter = iter(self.__colors[color_label]["investors"])
 
         for investor_name in investor_names:
             if investor_name in investment_universe.investors:
@@ -542,7 +572,7 @@ class InvestmentUniverseVisualizer:
                     investor_name + " - " + weights,
                     label)
 
-                color = next(color_iter)
+                color = self.__get_investor_color(investor_name, label)
                 self.__ax.scatter(
                     investor.portfolio.standard_deviation,
                     investor.portfolio.expected_return,
@@ -551,9 +581,6 @@ class InvestmentUniverseVisualizer:
     def __plot_indifference_curves(self, investment_universe, investor_names,
                                    label, size=50):
 
-        color_label = label if label is not None else "1"
-        color_iter = iter(self.__colors[color_label]["investors"])
-
         for investor_name in investor_names:
             if investor_name in investment_universe.investors:
                 investor = investment_universe.investors[investor_name]
@@ -561,7 +588,7 @@ class InvestmentUniverseVisualizer:
 
                 utility_list = self.get_utility_list(portfolio_utility)
 
-                color = next(color_iter)
+                color = self.__get_investor_color(investor_name, label)
                 for utility in utility_list:
                     std_array, mu_array = \
                         investor.calculate_indifference_curve(
@@ -607,9 +634,11 @@ class InvestmentUniverseVisualizer:
         tab20b_cmap = matplotlib.cm.tab20b
         dark2_cmap = matplotlib.cm.Dark2
         accent_cmap = matplotlib.cm.Accent
+        pastel2_cmap = matplotlib.cm.Pastel2
 
         colors1 = {
             'feasible': tab20_cmap(0),
+            'feasible_with_r_f': tab20_cmap(3),
             'mvp': tab20_cmap(6),
             'efficient': 'black',
             'tangency': tab20_cmap(4),
@@ -619,16 +648,17 @@ class InvestmentUniverseVisualizer:
             'others': [tab20b_cmap(i) for i in range(1, 20, 4)] + [
                 dark2_cmap(i) for i in range(0, 8)],
             'market': 'yellow',
-            'investors': [accent_cmap(i) for i in range(0, 8, 1)]
+            'investors': [dark2_cmap(i) for i in range(0, 8, 1)]
         }
 
         colors2 = {
             'feasible': tab20_cmap(1),
+            'feasible_with_r_f': tab20_cmap(13),
             'mvp': tab20_cmap(7),
             'efficient': 'black',
             'tangency': tab20_cmap(5),
             'r_f': 'black',
-            'cal': tab20_cmap(3),
+            'cal': tab20_cmap(12),
             'assets': [tab20b_cmap(i) for i in range(2, 20, 4)],
             'others': [tab20b_cmap(i) for i in range(3, 20, 4)] + [
                 accent_cmap(i) for i in range(0, 8)],
@@ -640,11 +670,12 @@ class InvestmentUniverseVisualizer:
         #  different from colors1 and colors2
         colors3 = {
             'feasible': tab20_cmap(2),
+            'feasible_with_r_f': tab20_cmap(15),
             'mvp': tab20_cmap(8),
             'efficient': 'black',
             'tangency': tab20_cmap(9),
             'r_f': 'black',
-            'cal': tab20_cmap(10),
+            'cal': tab20_cmap(14),
             'assets': [tab20b_cmap(i) for i in range(3, 20, 4)],
             'others': [dark2_cmap(i) for i in range(0, 8)] + [
                 accent_cmap(i) for i in range(0, 8)],
@@ -654,11 +685,12 @@ class InvestmentUniverseVisualizer:
 
         colors4 = {
             'feasible': accent_cmap(0),
+            'feasible_with_r_f': tab20_cmap(17),
             'mvp': accent_cmap(1),
             'efficient': 'black',
             'tangency': accent_cmap(2),
             'r_f': 'black',
-            'cal': accent_cmap(3),
+            'cal': tab20_cmap(16),
             'assets': [tab20b_cmap(i) for i in range(1, 20, 4)],
             'others': [dark2_cmap(i) for i in range(4, 8)] + [
                 accent_cmap(i) for i in range(4, 8)],
@@ -728,8 +760,12 @@ class InvestmentUniverseVisualizer:
                     "priority": 80 - inv_univ_index,
                     "size": 50
                 },
-                "indifference_curves": {
+                "feasible_portfolios_with_r_f": {
                     "priority": 90 - inv_univ_index,
+                    "size": 50
+                },
+                "indifference_curves": {
+                    "priority": 100 - inv_univ_index,
                     "size": 20
                 }
             }
@@ -740,6 +776,8 @@ class InvestmentUniverseVisualizer:
 
         if indifference_curves is True:
             indifference_curves = investors
+        elif indifference_curves is False:
+            indifference_curves = []
 
         self.__visual_elements_list = []
 
@@ -808,6 +846,14 @@ class InvestmentUniverseVisualizer:
                                            "priority"],
                                        properties["feasible_portfolios"][
                                            "size"], inv_univ, label))
+            if inv_univ.feasible_portfolios_with_r_f \
+                    and self.__feasible_portfolios_with_r_f_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(
+                        self.__plot_feasible_portfolios_with_r_f,
+                        properties["feasible_portfolios_with_r_f"]["priority"],
+                        properties["feasible_portfolios_with_r_f"]["size"],
+                        inv_univ, label))
             if inv_univ.market_portfolio \
                     and self.__market_portfolio_visible:
                 self.__visual_elements_list.append(
@@ -833,3 +879,21 @@ class InvestmentUniverseVisualizer:
                         inv_univ, label, indifference_curves))
 
             inv_univ_index += 1
+
+    def __get_investor_color(self, investor_name, label):
+
+        if investor_name in self.__investors_colors:
+            investor_color = self.__investors_colors[investor_name]
+        else:
+            color_label = label if label is not None else "1"
+            color_iter = iter(self.__colors[color_label]["investors"])
+
+            investor_color = next(color_iter)
+            while investor_color in self.__investors_colors.values():
+                investor_color = next(color_iter)
+
+            self.__investors_colors[investor_name] = investor_color
+
+        return investor_color
+
+

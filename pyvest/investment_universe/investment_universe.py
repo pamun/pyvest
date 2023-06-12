@@ -19,7 +19,9 @@ class InvestmentUniverse:
     MAX_NB_ITERATIONS = 100
 
     def __init__(self, assets, mu, cov, r_f=None, min_weight=0,
-                 parameters=None):
+                 min_weight_r_f=None, parameters=None):
+
+        self.__assign_parameters(parameters)
 
         self.__assets = assets
 
@@ -31,15 +33,15 @@ class InvestmentUniverse:
         self.__assign_mu(mu)
         self.__assign_cov(cov)
         self.__assign_min_weight(min_weight)
+        self.__assign_min_weight_r_f(min_weight_r_f)
 
         self.__investors = {}
         self.__nb_unnamed_investors = 0
 
-        self.__assign_parameters(parameters)
-
         self.__calculate_assets_std()
 
         self.__feasible_portfolios = None
+        self.__feasible_portfolios_with_r_f = None
         self.__mvp = None
         self.__efficient_frontier = None
         self.__tangency_portfolio = None
@@ -116,6 +118,14 @@ class InvestmentUniverse:
         self.__assign_min_weight(value)
 
     @property
+    def min_weight_r_f(self):
+        return self.__min_weight_r_f
+
+    @min_weight_r_f.setter
+    def min_weight_r_f(self, value):
+        self.__assign_min_weight_r_f(value)
+
+    @property
     def parameters(self):
         return self.__parameters
 
@@ -130,6 +140,10 @@ class InvestmentUniverse:
     @property
     def feasible_portfolios(self):
         return self.__feasible_portfolios
+
+    @property
+    def feasible_portfolios_with_r_f(self):
+        return self.__feasible_portfolios_with_r_f
 
     @property
     def mvp(self):
@@ -175,7 +189,7 @@ class InvestmentUniverse:
         for i in range(1, nb_portfolios):
             risky_assets_portfolio_weights = \
                 self.__calculate_random_portfolio_weights(
-                    self.__risky_assets_min_weights)
+                    self.__min_weights)
 
             if self.__r_f is not None:
                 portfolio_weights = \
@@ -189,6 +203,26 @@ class InvestmentUniverse:
 
         if return_portfolios:
             return self.__feasible_portfolios
+
+    def calculate_feasible_portfolios_with_r_f(self, nb_portfolios=100000,
+                                      return_portfolios=False):
+
+        if self.r_f is None:
+            min_weights = self.min_weight
+        else:
+            min_weights = np.append(self.min_weight, self.min_weight_r_f)
+
+        self.__feasible_portfolios_with_r_f = []
+        for i in range(1, nb_portfolios):
+            portfolio_weights = \
+                self.__calculate_random_portfolio_weights(min_weights)
+
+            portfolio = Portfolio(portfolio_weights, self.__mu, self.__cov,
+                                  r_f=self.__r_f, assets=self.__assets)
+            self.__feasible_portfolios_with_r_f.append(portfolio)
+
+        if return_portfolios:
+            return self.__feasible_portfolios_with_r_f
 
     def calculate_mvp(self, x0=None):
 
@@ -298,10 +332,13 @@ class InvestmentUniverse:
 
         return self.__tangency_portfolio
 
-    def calculate_cal(self, return_portfolios=False, extended=True):
+    def calculate_cal(self, return_portfolios=False):
 
-        min_fraction, max_fraction, step_fraction = self.__get_cal_parameters(
-            extended)
+        min_fraction, max_fraction, step_fraction = self.__get_cal_parameters()
+
+        print("min_fraction={}".format(min_fraction))
+        print("max_fraction={}".format(max_fraction))
+        print("step_fraction={}".format(step_fraction))
 
         if not self.__tangency_portfolio:
             self.calculate_tangency_portfolio()
@@ -460,15 +497,19 @@ class InvestmentUniverse:
 
     def __assign_min_weight(self, min_weight):
         if type(min_weight) is float or type(min_weight) is int:
-            self.__min_weights = min_weight * np.ones(self.__nb_assets)
-            self.__risky_assets_min_weights \
-                = min_weight * np.ones(self.__nb_risky_assets)
+            self.__min_weights = min_weight * np.ones(self.__nb_risky_assets)
         elif type(min_weight) is list or type(min_weight) is np.array:
             self.__min_weights = min_weight
         else:
             raise TypeError(
                 "The parameter 'min_weight' must be of type float ,int or "
                 "list.")
+
+    def __assign_min_weight_r_f(self, min_weight_r_f):
+        if min_weight_r_f is None:
+            self.__min_weight_r_f = self.__parameters["min_weight_r_f"]
+        else:
+            self.__min_weight_r_f = min_weight_r_f
 
     def __assign_parameters(self, parameters):
         if parameters is None:
@@ -481,8 +522,8 @@ class InvestmentUniverse:
         self.__parameters = {
             "optimization_tolerance": 1e-8,
             "cal_min_fraction": 0,
-            "cal_max_fraction": 3,
-            "cal_step_fraction": 0.001
+            "cal_step_fraction": 0.001,
+            "min_weight_r_f": -4
         }
 
     def __check_parameters(self, parameters):
@@ -506,8 +547,8 @@ class InvestmentUniverse:
         # and "smallest_weight=-1" implies that the weight of each asset in the portfolio must be equal or greater to -1
         # The function returns an array of portfolio weights
 
-        weights = np.random.dirichlet(np.ones(self.__nb_risky_assets), size=1)[
-            0]
+        weights = np.random.dirichlet(np.ones(len(smallest_weights_list)),
+                                      size=1)[0]
         norm_weights = \
             weights * (1 - sum(smallest_weights_list)) + smallest_weights_list
 
@@ -525,7 +566,7 @@ class InvestmentUniverse:
         # Sum portfolio weights equals 1 constraint
         self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
             np.ones(self.__nb_risky_assets), 1, 1)
-        self.__min_weights_bound = Bounds(self.__risky_assets_min_weights,
+        self.__min_weights_bound = Bounds(self.__min_weights,
                                           np.inf)
 
         # Minimize
@@ -549,7 +590,7 @@ class InvestmentUniverse:
         mu_argmax = np.argmax(self.__mu)
         mu_max = self.__mu[mu_argmax]
         others_mu = np.delete(self.__mu, mu_argmax)
-        others_min_weight = np.delete(self.__risky_assets_min_weights,
+        others_min_weight = np.delete(self.__min_weights,
                                       mu_argmax)
 
         self.__efficient_mu_min = mvp.expected_return
@@ -624,17 +665,14 @@ class InvestmentUniverse:
 
         return tentative_portfolio
 
-    def __get_cal_parameters(self, extended):
+    def __get_cal_parameters(self):
 
         min_fraction = self.__parameters["cal_min_fraction"]
-        max_fraction = self.__parameters["cal_max_fraction"]
         step_fraction = self.__parameters["cal_step_fraction"]
 
-        if extended is True and self.__efficient_mu_max is not None:
-            max_std = max([ptf.standard_deviation
-                           for ptf in self.__efficient_frontier])
-            max_fraction = max_std / self.__tangency_portfolio.expected_return
-        elif extended is False:
-            max_fraction = 1.0 - self.min_weight[-1]
+        max_std = max([ptf.standard_deviation
+                       for ptf in self.__efficient_frontier])
+        max_fraction = min(1.0 - self.min_weight_r_f,
+                           max_std / self.__tangency_portfolio.expected_return)
 
         return min_fraction, max_fraction, step_fraction

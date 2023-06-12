@@ -109,8 +109,14 @@ class Investor:
         # Sum portfolio weights equals 1 constraint
         sum_weights_assets_equals_one_constraint = LinearConstraint(
             np.ones(nb_assets), 1, 1)
-        min_weight_bound = Bounds(self.__investment_universe.min_weight,
-                                  np.inf)
+
+        if self.__investment_universe.r_f is None:
+            min_weights = self.__investment_universe.min_weight
+        else:
+            min_weights = np.append(self.__investment_universe.min_weight,
+                                    self.__investment_universe.min_weight_r_f)
+
+        min_weight_bound = Bounds(min_weights, np.inf)
 
         optimal_portfolio_result = minimize(
             lambda x: - self.__utility_function(
