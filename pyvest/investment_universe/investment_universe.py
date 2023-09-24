@@ -2,7 +2,7 @@ import numpy as np
 
 import math
 
-from pyvest.general.general import Portfolio
+from pyvest.general.portfolio import Portfolio
 from pyvest.general.general import calculate_portfolio_standard_deviation
 from pyvest.general.general import calculate_portfolio_sharpe_ratio
 from pyvest.investment_universe.investment_universe_visualizer import \
@@ -12,33 +12,46 @@ from scipy.optimize import minimize
 from scipy.optimize import LinearConstraint
 from scipy.optimize import Bounds
 
+from pyvest.investment_universe.investor import Investor
+
 
 class InvestmentUniverse:
     MAX_NB_ITERATIONS = 100
 
     def __init__(self, assets, mu, cov, r_f=None, min_weight=0,
-                 optimization_tolerance=1e-8):
-        # The argument "nb_assets" denotes the number of assets in the
-        # portfolio
+                 min_weight_r_f=None, parameters=None):
+
+        self.__assign_parameters(parameters)
 
         self.__assets = assets
-        self.__nb_assets = len(mu)
-        self.mu = mu
-        self.cov = cov
+
+        self.__nb_risky_assets = len(mu)
+        self.__nb_assets = self.__nb_risky_assets if r_f is None \
+            else self.__nb_risky_assets + 1
+
         self.__assign_r_f(r_f)
+        self.__assign_mu(mu)
+        self.__assign_cov(cov)
         self.__assign_min_weight(min_weight)
-        self.__assign_optimization_tolerance(optimization_tolerance)
+        self.__assign_min_weight_r_f(min_weight_r_f)
+
+        self.__investors = {}
+        self.__nb_unnamed_investors = 0
 
         self.__calculate_assets_std()
 
         self.__feasible_portfolios = None
+        self.__feasible_portfolios_with_r_f = None
         self.__mvp = None
         self.__efficient_frontier = None
         self.__tangency_portfolio = None
         self.__cal = self.__cal_mu_list = self.__cal_std_list = None
         self.__other_portfolios = None
+        self.__market_portfolio = None
+        self.__total_wealth = None
+        self.__investors = {}
 
-        self.__min_weight_bound = None
+        self.__min_weights_bound = None
         self.__sum_weights_assets_equals_one_constraint = None
 
         self.__efficient_mu_min = None
@@ -65,12 +78,28 @@ class InvestmentUniverse:
         self.__mu = np.array(value)
 
     @property
+    def augmented_mu(self):
+        return self.__augmented_mu
+
+    @augmented_mu.setter
+    def augmented_mu(self, value):
+        self.__augmented_mu = np.array(value)
+
+    @property
     def cov(self):
         return self.__cov
 
     @cov.setter
     def cov(self, value):
         self.__cov = np.array(value)
+
+    @property
+    def augmented_cov(self):
+        return self.__augmented_cov
+
+    @augmented_cov.setter
+    def augmented_cov(self, value):
+        self.__augmented_cov = np.array(value)
 
     @property
     def r_f(self):
@@ -82,19 +111,27 @@ class InvestmentUniverse:
 
     @property
     def min_weight(self):
-        return self.__min_weight
+        return self.__min_weights
 
     @min_weight.setter
     def min_weight(self, value):
         self.__assign_min_weight(value)
 
     @property
-    def optimization_tolerance(self):
-        return self.__optimization_tolerance
+    def min_weight_r_f(self):
+        return self.__min_weight_r_f
 
-    @optimization_tolerance.setter
-    def optimization_tolerance(self, value):
-        self.__assign_optimization_tolerance(value)
+    @min_weight_r_f.setter
+    def min_weight_r_f(self, value):
+        self.__assign_min_weight_r_f(value)
+
+    @property
+    def parameters(self):
+        return self.__parameters
+
+    @parameters.setter
+    def parameters(self, value):
+        self.__assign_parameters(value)
 
     @property
     def std(self):
@@ -103,6 +140,10 @@ class InvestmentUniverse:
     @property
     def feasible_portfolios(self):
         return self.__feasible_portfolios
+
+    @property
+    def feasible_portfolios_with_r_f(self):
+        return self.__feasible_portfolios_with_r_f
 
     @property
     def mvp(self):
@@ -128,26 +169,66 @@ class InvestmentUniverse:
     def visualizer(self):
         return self.__visualizer
 
+    @property
+    def investors(self):
+        return self.__investors
+
+    @property
+    def market_portfolio(self):
+        return self.__market_portfolio
+
+    @property
+    def total_wealth(self):
+        return self.__total_wealth
+
     ################################# PUBLIC FUNCTIONS #################################
 
     def calculate_feasible_portfolios(self, nb_portfolios=20000,
                                       return_portfolios=False):
         self.__feasible_portfolios = []
         for i in range(1, nb_portfolios):
-            portfolio_weights = self.__add_random_portfolio_weights(
-                self.__min_weight)
+            risky_assets_portfolio_weights = \
+                self.__calculate_random_portfolio_weights(
+                    self.__min_weights)
+
+            if self.__r_f is not None:
+                portfolio_weights = \
+                    np.append(risky_assets_portfolio_weights, [0])
+            else:
+                portfolio_weights = risky_assets_portfolio_weights
+
             portfolio = Portfolio(portfolio_weights, self.__mu, self.__cov,
-                                  assets=self.__assets)
+                                  r_f=self.__r_f, assets=self.__assets)
             self.__feasible_portfolios.append(portfolio)
 
         if return_portfolios:
             return self.__feasible_portfolios
 
+    def calculate_feasible_portfolios_with_r_f(self, nb_portfolios=100000,
+                                      return_portfolios=False):
+
+        if self.r_f is None:
+            min_weights = self.min_weight
+        else:
+            min_weights = np.append(self.min_weight, self.min_weight_r_f)
+
+        self.__feasible_portfolios_with_r_f = []
+        for i in range(1, nb_portfolios):
+            portfolio_weights = \
+                self.__calculate_random_portfolio_weights(min_weights)
+
+            portfolio = Portfolio(portfolio_weights, self.__mu, self.__cov,
+                                  r_f=self.__r_f, assets=self.__assets)
+            self.__feasible_portfolios_with_r_f.append(portfolio)
+
+        if return_portfolios:
+            return self.__feasible_portfolios_with_r_f
+
     def calculate_mvp(self, x0=None):
 
         # Initial guess (seed value)
         if x0 is None:
-            x0 = np.ones(self.__nb_assets) / self.__nb_assets
+            x0 = np.ones(self.__nb_risky_assets) / self.__nb_risky_assets
 
         # Assign results
         self.__mvp = self.__calculate_mvp(x0)
@@ -156,12 +237,13 @@ class InvestmentUniverse:
 
     def calculate_efficient_portfolio(self, mu=None, sigma=None, name=None,
                                       x0=None, tolerance=None):
-        tolerance = self.__optimization_tolerance if tolerance is None \
-            else tolerance
+
+        tolerance = self.__parameters["optimization_tolerance"] \
+            if tolerance is None else tolerance
 
         # Initial guess (seed value)
         if x0 is None:
-            x0 = np.ones(self.__nb_assets) / self.__nb_assets
+            x0 = np.ones(self.__nb_risky_assets) / self.__nb_risky_assets
 
         mvp = self.__calculate_mvp(x0) if not self.__mvp else self.__mvp
 
@@ -186,14 +268,15 @@ class InvestmentUniverse:
         return efficient_portfolio
 
     def calculate_efficient_frontier(self, nb_portfolios=1000, x0=None,
-                                     tolerance=None, return_portfolios=False):
+                                     tolerance=None,
+                                     return_portfolios=False):
 
-        tolerance = self.__optimization_tolerance if tolerance is None \
-            else tolerance
+        tolerance = self.__parameters["optimization_tolerance"] \
+            if tolerance is None else tolerance
 
         # Initial guess (seed value)
         if x0 is None:
-            x0 = np.ones(self.__nb_assets) / self.__nb_assets
+            x0 = np.ones(self.__nb_risky_assets) / self.__nb_risky_assets
 
         mvp = self.__calculate_mvp(x0) if not self.__mvp else self.__mvp
 
@@ -211,48 +294,59 @@ class InvestmentUniverse:
         if return_portfolios:
             return self.__efficient_frontier
 
-    def calculate_tangency_portfolio(self, x0=None):
+    def calculate_tangency_portfolio(self, x0=None, tolerance=None):
+
+        tolerance = self.__parameters["optimization_tolerance"] \
+            if tolerance is None else tolerance
 
         if self.__r_f is None:
             raise ValueError("You need to add a risk-free asset first!")
 
         # Initial guess (seed value)
         if x0 is None:
-            x0 = np.ones(self.__nb_assets) / self.__nb_assets
+            x0 = np.ones(self.__nb_risky_assets) / self.__nb_risky_assets
 
         # Sum portfolio weights equals 1 constraint
         self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
-            np.ones(self.__nb_assets), 1, 1)
+            np.ones(self.__nb_risky_assets), 1, 1)
 
         tangency_portfolio_result = minimize(
             lambda x: -calculate_portfolio_sharpe_ratio(x, self.__mu,
                                                         self.__cov,
                                                         self.__r_f),
             x0,
-            bounds=self.__min_weight_bound,
+            bounds=self.__min_weights_bound,
             constraints=[self.__sum_weights_assets_equals_one_constraint],
-            tol=self.__optimization_tolerance)
+            tol=tolerance)
 
-        tangency_portfolio_weights = tangency_portfolio_result.x
+        if self.__r_f is not None:
+            tangency_portfolio_weights = \
+                np.append(tangency_portfolio_result.x, [0])
+        else:
+            tangency_portfolio_weights = tangency_portfolio_result.x
+
         self.__tangency_portfolio = Portfolio(tangency_portfolio_weights,
                                               self.__mu, self.__cov,
+                                              r_f=self.__r_f,
                                               assets=self.__assets)
 
         return self.__tangency_portfolio
 
-    def calculate_cal(self, min_fraction_tangency=0, max_fraction_tangency=3,
-                      step_fraction_tangency=0.001, return_portfolios=False):
+    def calculate_cal(self, return_portfolios=False):
+
+        min_fraction, max_fraction, step_fraction = self.__get_cal_parameters()
 
         if not self.__tangency_portfolio:
             self.calculate_tangency_portfolio()
 
         self.__cal = []
-        for tangency_weight in np.arange(min_fraction_tangency,
-                                         max_fraction_tangency,
-                                         step_fraction_tangency):
-            cal_portfolio_weights = np.concatenate(
-                (tangency_weight * self.__tangency_portfolio.weights,
-                 [1 - tangency_weight]))
+        for tangency_weight in np.arange(min_fraction,
+                                         max_fraction,
+                                         step_fraction):
+            cal_portfolio_weights = tangency_weight \
+                                    * self.__tangency_portfolio.weights
+            cal_portfolio_weights[-1] = 1 - tangency_weight
+
             cal_portfolio = Portfolio(cal_portfolio_weights, self.__mu,
                                       self.__cov, self.__r_f,
                                       assets=self.__assets)
@@ -268,18 +362,20 @@ class InvestmentUniverse:
         elif (isinstance(portfolio, list)
               or isinstance(portfolio, np.ndarray)
               or isinstance(portfolio, tuple)) \
-                and len(portfolio) == self.__nb_assets:
+                and ((len(portfolio) == self.__nb_risky_assets
+                      and self.__r_f is None)
+                     or (len(portfolio) == self.__nb_risky_assets + 1
+                         and self.__r_f is not None)):
             portfolio_obj = Portfolio(portfolio, self.__mu, self.__cov,
-                                      assets=self.__assets)
+                                      r_f=self.__r_f, assets=self.__assets)
         else:
             raise TypeError("The variable 'portfolio' must be an object of "
                             "type Portfolio or a list of weights of dimension "
-                            "{}.".format(self.__nb_assets))
+                            "{}.".format(self.__nb_risky_assets))
 
         if self.__other_portfolios is None:
             self.__other_portfolios = {}
-        # if name is None:
-        #     name = "Ptf " + str(len(self.__other_portfolios) + 1)
+
         self.__other_portfolios[tuple(portfolio_obj.weights)] = \
             (portfolio_obj, name)
 
@@ -306,7 +402,8 @@ class InvestmentUniverse:
 
     def plot(self, compare_with=None, labels=None, weights_visible=True,
              zoom_individual=False, min_mu=None, max_mu=None, min_std=None,
-             max_std=None):
+             max_std=None, investors=None, indifference_curves=None,
+             legend='upper left'):
         investment_universes = [self]
         if isinstance(compare_with, InvestmentUniverse):
             investment_universes.append(compare_with)
@@ -322,42 +419,133 @@ class InvestmentUniverse:
             self.__visualizer.labels = labels
             self.__visualizer.reset_colors()
         self.__visualizer.plot(zoom_individual=zoom_individual, min_mu=min_mu,
-                               max_mu=max_mu, min_std=min_std, max_std=max_std)
+                               max_mu=max_mu, min_std=min_std, max_std=max_std,
+                               investors=investors,
+                               indifference_curves=indifference_curves,
+                               legend=legend)
+
+    def add_investor(self, wealth, portfolio=None, gamma=None,
+                     utility_function=None, name=None):
+
+        investor = Investor(self, wealth, portfolio, gamma, utility_function)
+
+        if name is None:
+            self.__nb_unnamed_investors += 1
+            name = "Investor {}".format(self.__nb_unnamed_investors)
+
+        self.__investors[name] = investor
+
+        return investor
+
+    def calculate_market_portfolio(self):
+
+        nb_weights = self.__nb_risky_assets + 1 if self.__r_f is not None \
+            else self.__nb_risky_assets
+
+        market_assets_value = np.zeros(nb_weights)
+        self.__total_wealth = 0
+        for investor in self.__investors.values():
+            self.__total_wealth += investor.wealth
+            weights = investor.portfolio.weights
+            market_assets_value += np.array(weights) * investor.wealth
+
+        market_weights = market_assets_value / self.__total_wealth
+
+        if self.__r_f is not None:
+            market_weights = \
+                market_weights / sum(market_weights[:self.__nb_risky_assets])
+            market_weights[-1] = 0.0
+
+        self.__market_portfolio = Portfolio(market_weights, self.__mu,
+                                            self.__cov, r_f=self.__r_f,
+                                            assets=self.__assets)
+
+        return self.__market_portfolio
 
     ########################## PRIVATE ##########################
+
+    def __assign_mu(self, mu):
+        self.mu = mu
+        if self.__r_f is not None:
+            self.__augmented_mu = np.concatenate((self.__mu,
+                                                  [self.__r_f]))
+        else:
+            self.__augmented_mu = self.mu
+
+    def __assign_cov(self, cov):
+        self.cov = cov
+        if self.__r_f is not None:
+            zeros_column = (np.zeros((len(self.__cov), 1)))
+            zeros_row = (np.zeros((1, len(self.__cov) + 1)))
+            self.__augmented_cov = \
+                np.concatenate(
+                    (np.concatenate((self.__cov, zeros_column), axis=1),
+                     zeros_row))
+        else:
+            self.__augmented_cov = self.cov
 
     def __assign_r_f(self, r_f):
         if r_f is None or type(r_f) is float or type(r_f) is int:
             self.__r_f = r_f
         else:
-            raise TypeError("The variable 'r_f' must be of type float or int.")
+            raise TypeError(
+                "The parameter 'r_f' must be of type float or int.")
 
     def __assign_min_weight(self, min_weight):
         if type(min_weight) is float or type(min_weight) is int:
-            self.__min_weight = min_weight * np.ones(self.__nb_assets)
+            self.__min_weights = min_weight * np.ones(self.__nb_risky_assets)
         elif type(min_weight) is list or type(min_weight) is np.array:
-            self.__min_weight = min_weight
+            self.__min_weights = min_weight
         else:
             raise TypeError(
-                "The variable 'min_weight' must be of type float ,int or "
+                "The parameter 'min_weight' must be of type float ,int or "
                 "list.")
 
-    def __assign_optimization_tolerance(self, optimization_tolerance):
-        if type(optimization_tolerance) is float:
-            self.__optimization_tolerance = optimization_tolerance
+    def __assign_min_weight_r_f(self, min_weight_r_f):
+        if min_weight_r_f is None:
+            self.__min_weight_r_f = self.__parameters["min_weight_r_f"]
         else:
+            self.__min_weight_r_f = min_weight_r_f
+
+    def __assign_parameters(self, parameters):
+        if parameters is None:
+            self.__assign_default_parameters()
+        else:
+            self.__check_parameters(parameters)
+            self.__parameters = parameters
+
+    def __assign_default_parameters(self):
+        self.__parameters = {
+            "optimization_tolerance": 1e-8,
+            "cal_min_fraction": 0,
+            "cal_step_fraction": 0.001,
+            "min_weight_r_f": -4,
+            "cal_max_std": 10
+        }
+
+    def __check_parameters(self, parameters):
+        if type(parameters) is not dict:
             raise TypeError(
-                "The variable 'optimization_tolerance' must be of type float.")
+                "The variable 'parameters' must be a dictionary.")
+
+        if "optimization_tolerance" not in parameters:
+            raise ValueError(
+                "The dictionary parameters must contain the key "
+                "'optimization_tolerance'.")
+        if type(optimization_tolerance) is not float:
+            raise TypeError(
+                "The value of 'optimization_tolerance' must be of type float.")
 
     # Portfolio weights generator
-    def __add_random_portfolio_weights(self, smallest_weights_list):
+    def __calculate_random_portfolio_weights(self, smallest_weights_list):
         # This function adds random portfolio weights
         # The argument "smallest_weight" denotest the smallest weight admissible for a given asset
         # For example, "smallest_weight=0" indicates that short sales are not allowed,
         # and "smallest_weight=-1" implies that the weight of each asset in the portfolio must be equal or greater to -1
         # The function returns an array of portfolio weights
 
-        weights = np.random.dirichlet(np.ones(self.__nb_assets), size=1)[0]
+        weights = np.random.dirichlet(np.ones(len(smallest_weights_list)),
+                                      size=1)[0]
         norm_weights = \
             weights * (1 - sum(smallest_weights_list)) + smallest_weights_list
 
@@ -374,25 +562,33 @@ class InvestmentUniverse:
 
         # Sum portfolio weights equals 1 constraint
         self.__sum_weights_assets_equals_one_constraint = LinearConstraint(
-            np.ones(self.__nb_assets), 1, 1)
-        self.__min_weight_bound = Bounds(self.__min_weight, np.inf)
+            np.ones(self.__nb_risky_assets), 1, 1)
+        self.__min_weights_bound = Bounds(self.__min_weights,
+                                          np.inf)
 
         # Minimize
         mvp_result = minimize(
             lambda x: calculate_portfolio_standard_deviation(x, self.__cov),
             x0,
-            bounds=self.__min_weight_bound,
+            bounds=self.__min_weights_bound,
             constraints=[self.__sum_weights_assets_equals_one_constraint],
-            tol=self.__optimization_tolerance)
+            tol=self.__parameters["optimization_tolerance"])
 
-        return Portfolio(mvp_result.x, self.__mu, self.__cov,
+        if self.__r_f is not None:
+            mvp_weights = \
+                np.append(mvp_result.x, [0])
+        else:
+            mvp_weights = mvp_result.x
+
+        return Portfolio(mvp_weights, self.__mu, self.__cov, r_f=self.__r_f,
                          assets=self.__assets)
 
     def __calculate_efficient_mu_min_max(self, mvp):
         mu_argmax = np.argmax(self.__mu)
         mu_max = self.__mu[mu_argmax]
         others_mu = np.delete(self.__mu, mu_argmax)
-        others_min_weight = np.delete(self.__min_weight, mu_argmax)
+        others_min_weight = np.delete(self.__min_weights,
+                                      mu_argmax)
 
         self.__efficient_mu_min = mvp.expected_return
         self.__efficient_mu_max = (1 - sum(
@@ -415,17 +611,23 @@ class InvestmentUniverse:
             lambda x: calculate_portfolio_standard_deviation(x,
                                                              self.__cov),
             x0,
-            bounds=self.__min_weight_bound,
+            bounds=self.__min_weights_bound,
             constraints=[self.__sum_weights_assets_equals_one_constraint,
                          efficient_mu_constraint],
             tol=tolerance)
         if not efficient_portfolio_result.success:
             raise ValueError(
                 "minimize was not successful with bounds={} and constraints={}!"
-                .format(self.__min_weight_bound, mu))
-        efficient_portfolio_weights = efficient_portfolio_result.x
-        efficient_portfolio = Portfolio(efficient_portfolio_weights,
-                                        self.__mu, self.__cov,
+                .format(self.__min_weights_bound, mu))
+
+        if self.__r_f is not None:
+            efficient_portfolio_weights = \
+                np.append(efficient_portfolio_result.x, [0])
+        else:
+            efficient_portfolio_weights = efficient_portfolio_result.x
+
+        efficient_portfolio = Portfolio(efficient_portfolio_weights, self.__mu,
+                                        self.__cov, r_f=self.__r_f,
                                         assets=self.__assets)
 
         return efficient_portfolio
@@ -459,3 +661,19 @@ class InvestmentUniverse:
                                     .format(self.MAX_NB_ITERATIONS))
 
         return tentative_portfolio
+
+    def __get_cal_parameters(self):
+
+        min_fraction = self.__parameters["cal_min_fraction"]
+        step_fraction = self.__parameters["cal_step_fraction"]
+
+        if self.__efficient_frontier is not None:
+            max_std = max([ptf.standard_deviation
+                           for ptf in self.__efficient_frontier])
+        else:
+            max_std = self.__parameters["cal_max_std"]
+
+        max_fraction = min(1.0 - self.min_weight_r_f,
+                           max_std / self.__tangency_portfolio.expected_return)
+
+        return min_fraction, max_fraction, step_fraction
