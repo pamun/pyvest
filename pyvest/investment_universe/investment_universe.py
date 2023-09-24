@@ -336,10 +336,6 @@ class InvestmentUniverse:
 
         min_fraction, max_fraction, step_fraction = self.__get_cal_parameters()
 
-        print("min_fraction={}".format(min_fraction))
-        print("max_fraction={}".format(max_fraction))
-        print("step_fraction={}".format(step_fraction))
-
         if not self.__tangency_portfolio:
             self.calculate_tangency_portfolio()
 
@@ -523,7 +519,8 @@ class InvestmentUniverse:
             "optimization_tolerance": 1e-8,
             "cal_min_fraction": 0,
             "cal_step_fraction": 0.001,
-            "min_weight_r_f": -4
+            "min_weight_r_f": -4,
+            "cal_max_std": 10
         }
 
     def __check_parameters(self, parameters):
@@ -670,8 +667,12 @@ class InvestmentUniverse:
         min_fraction = self.__parameters["cal_min_fraction"]
         step_fraction = self.__parameters["cal_step_fraction"]
 
-        max_std = max([ptf.standard_deviation
-                       for ptf in self.__efficient_frontier])
+        if self.__efficient_frontier is not None:
+            max_std = max([ptf.standard_deviation
+                           for ptf in self.__efficient_frontier])
+        else:
+            max_std = self.__parameters["cal_max_std"]
+
         max_fraction = min(1.0 - self.min_weight_r_f,
                            max_std / self.__tangency_portfolio.expected_return)
 
