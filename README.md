@@ -15,6 +15,8 @@ vs the standard deviation:
 - Efficient frontier
 - Tangency portfolio
 - Capital allocation line (CAL)
+- Optimal portfolio of an investor
+- Indifference curves of an investor
 
 
 ### Example 1: No risk-free asset
