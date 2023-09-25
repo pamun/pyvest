@@ -69,24 +69,24 @@ The risky assets are defined as above:
 
 A risk-free asset of 2% is added to the investment universe:
 
-    investment_universe_with_rf = InvestmentUniverse(assets, mu, cov, r_f=2)
+    investment_universe_with_r_f = InvestmentUniverse(assets, mu, cov, r_f=2)
 
 The feasible portfolios, the MVP and the efficient frontier are 
 calculated as above:
 
-    investment_universe_with_rf.calculate_feasible_portfolios()
-    investment_universe_with_rf.calculate_mvp()
-    investment_universe_with_rf.calculate_efficient_frontier()
+    investment_universe_with_r_f.calculate_feasible_portfolios()
+    investment_universe_with_r_f.calculate_mvp()
+    investment_universe_with_r_f.calculate_efficient_frontier()
 
 Calculate the tangency portfolio:
 
-    investment_universe_with_rf.calculate_tangency_portfolio()
+    investment_universe_with_r_f.calculate_tangency_portfolio()
 
 Calculate the CAL:
 
-    investment_universe_with_rf.calculate_cal()
+    investment_universe_with_r_f.calculate_cal()
 
 Plot the risk-return trade-off graph of the investment universe with a 
 risk-free asset:
 
-    investment_universe_with_rf.plot()
+    investment_universe_with_r_f.plot()
