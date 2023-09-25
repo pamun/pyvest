@@ -673,7 +673,8 @@ class InvestmentUniverse:
         else:
             max_std = self.__parameters["cal_max_std"]
 
-        max_fraction = min(1.0 - self.min_weight_r_f,
-                           max_std / self.__tangency_portfolio.expected_return)
+        max_fraction = min(
+            1.0 - self.min_weight_r_f,
+            max_std / self.__tangency_portfolio.standard_deviation)
 
         return min_fraction, max_fraction, step_fraction
