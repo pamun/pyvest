@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvest"
-version = "0.0.1"
+version = "0.0.2"
 license = {text = "MIT"}
 authors = [
   { name="Patrick Munroe", email="patrick.munroe@gmail.com" },
