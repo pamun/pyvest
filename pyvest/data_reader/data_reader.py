@@ -16,6 +16,10 @@ class YFDataReader(DataReader):
         super().__init__()
 
     def read_returns(self, tickers, start_date, end_date, freq='1M'):
+
+        if isinstance(tickers, str):
+            tickers = [tickers]
+
         monthly_returns_df = pd.DataFrame()
         for ticker in tickers:
             monthly_returns_df[ticker] = self.__read_ticker_returns(
