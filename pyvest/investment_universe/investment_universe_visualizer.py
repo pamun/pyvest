@@ -429,8 +429,10 @@ class InvestmentUniverseVisualizer:
         efficient_portfolios_std_list = list(
             map(lambda x: x.standard_deviation,
                 investment_universe.efficient_frontier))
+        legend_label = self.__complete_label("Efficient frontier", label)
         self.__ax.scatter(efficient_portfolios_std_list,
-                          efficient_portfolios_mu_list, color=color, s=size)
+                          efficient_portfolios_mu_list, color=color, s=size,
+                          label=legend_label)
 
     def __plot_cal(self, investment_universe, label, size=20):
         color_label = label if label is not None else "1"
@@ -632,9 +634,9 @@ class InvestmentUniverseVisualizer:
 
         tab20_cmap = matplotlib.cm.tab20
         tab20b_cmap = matplotlib.cm.tab20b
+        tab20c_cmap = matplotlib.cm.tab20c
         dark2_cmap = matplotlib.cm.Dark2
         accent_cmap = matplotlib.cm.Accent
-        pastel2_cmap = matplotlib.cm.Pastel2
 
         colors1 = {
             'feasible': tab20_cmap(0),
@@ -642,7 +644,7 @@ class InvestmentUniverseVisualizer:
             'mvp': tab20_cmap(6),
             'efficient': 'black',
             'tangency': tab20_cmap(4),
-            'r_f': 'black',
+            'r_f': tab20c_cmap(16),
             'cal': tab20_cmap(2),
             'assets': [tab20b_cmap(i) for i in range(0, 20, 4)],
             'others': [tab20b_cmap(i) for i in range(1, 20, 4)] + [
@@ -657,7 +659,7 @@ class InvestmentUniverseVisualizer:
             'mvp': tab20_cmap(7),
             'efficient': 'black',
             'tangency': tab20_cmap(5),
-            'r_f': 'black',
+            'r_f': tab20c_cmap(16),
             'cal': tab20_cmap(12),
             'assets': [tab20b_cmap(i) for i in range(2, 20, 4)],
             'others': [tab20b_cmap(i) for i in range(3, 20, 4)] + [
@@ -674,7 +676,7 @@ class InvestmentUniverseVisualizer:
             'mvp': tab20_cmap(8),
             'efficient': 'black',
             'tangency': tab20_cmap(9),
-            'r_f': 'black',
+            'r_f': tab20c_cmap(16),
             'cal': tab20_cmap(14),
             'assets': [tab20b_cmap(i) for i in range(3, 20, 4)],
             'others': [dark2_cmap(i) for i in range(0, 8)] + [
@@ -689,7 +691,7 @@ class InvestmentUniverseVisualizer:
             'mvp': accent_cmap(1),
             'efficient': 'black',
             'tangency': accent_cmap(2),
-            'r_f': 'black',
+            'r_f': tab20c_cmap(16),
             'cal': tab20_cmap(16),
             'assets': [tab20b_cmap(i) for i in range(1, 20, 4)],
             'others': [dark2_cmap(i) for i in range(4, 8)] + [
