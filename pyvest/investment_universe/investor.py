@@ -209,6 +209,6 @@ class Investor:
         for portfolio_line in str(self.portfolio).splitlines():
             output += "\n  -{}".format(portfolio_line)
 
-        output += "\n  -{}: {}".format("utility:", self.portfolio_utility)
+        output += "\n  -{}: {}".format("utility", self.portfolio_utility)
 
         return output
