@@ -1,17 +1,10 @@
-import pandas as pd
+from pyvest.data_reader import ReturnsDataReader
 
+import pandas as pd
 import yfinance as yf
 
 
-class DataReader:
-    def __init__(self):
-        pass
-
-    def read_returns(self, tickers, start_date, end_date):
-        raise NotImplementedError("read_returns has not been implemented.")
-
-
-class YFDataReader(DataReader):
+class YFDataReader(ReturnsDataReader):
     def __init__(self):
         super().__init__()
 
