@@ -49,7 +49,11 @@ class FactorModelVisualizer:
 
     def plot_realized_vs_predicted_average_return(self, min_return=0,
                                                   max_return=1.5,
-                                                  legend='upper left'):
+                                                  legend='upper left',
+                                                  portfolios=None,
+                                                  confidence_level=None):
+
+        self.__perform_factor_models_calculations(confidence_level)
 
         RETURN_STEP = 0.01
 
@@ -74,17 +78,40 @@ class FactorModelVisualizer:
         colors_iter = iter(self.__colors)
         error_bars_colors_iter = iter(self.__error_bars_colors)
         for factor_model in self.__factor_models:
+
+            if isinstance(portfolios, dict):
+                shown_portfolios = portfolios[factor_model.name]
+            else:
+                shown_portfolios = portfolios if portfolios is not None \
+                    else list(factor_model.Y.columns)
+
+            print(shown_portfolios)
+
             label = next(labels_iter)
             color = next(colors_iter)
             error_bars_color = next(error_bars_colors_iter)
 
-            self.__ax.errorbar(factor_model.predicted_average_returns,
-                               factor_model.realized_average_returns,
+            lower_error_bars = [rr.lower_error_bar for ptf, rr
+                                in factor_model.items() if ptf
+                                in shown_portfolios]
+            upper_error_bars = [rr.upper_error_bar for ptf, rr
+                                in factor_model.items() if ptf
+                                in shown_portfolios]
+            predicted_average_returns = \
+                [ret for ptf, ret in
+                 factor_model.predicted_average_returns.items()
+                 if ptf in shown_portfolios]
+            realized_average_returns = \
+                [ret for ptf, ret in
+                 factor_model.realized_average_returns.items()
+                 if ptf in shown_portfolios]
+
+            self.__ax.errorbar(predicted_average_returns,
+                               realized_average_returns,
                                linestyle="None",
                                marker='.',
                                markersize=15,
-                               yerr=[factor_model.lower_error_bars,
-                                     factor_model.upper_error_bars],
+                               yerr=[lower_error_bars, upper_error_bars],
                                capsize=5,
                                color=error_bars_color,
                                markeredgecolor=color,
@@ -93,16 +120,19 @@ class FactorModelVisualizer:
                                label=label)
 
             # For loop to annotate all points
-            for i in range(len(factor_model.Y.columns)):
-                self.__ax.annotate(factor_model.Y.columns[i],
-                                   (factor_model.predicted_average_returns[i],
+            for ptf in shown_portfolios:
+                self.__ax.annotate(ptf,
+                                   (factor_model.predicted_average_returns[ptf],
                                     factor_model.realized_average_returns[
-                                        i] + 0.02),
+                                        ptf] + 0.02),
                                    fontsize=20)
         if type(legend) is str:
             self.__ax.legend(fontsize=15, loc=legend)
 
-    def plot_sml(self, beta_min=0, beta_max=2, legend='upper left'):
+    def plot_sml(self, beta_min=0, beta_max=2, legend='upper left',
+                 portfolios=None, confidence_level=None):
+
+        self.__perform_factor_models_calculations(confidence_level)
 
         self.__check_if_one_factor()
         self.__check_factor_models_use_same_r_f()
@@ -130,17 +160,37 @@ class FactorModelVisualizer:
         colors_iter = iter(self.__colors)
         error_bars_colors_iter = iter(self.__error_bars_colors)
         for factor_model in self.__factor_models:
+
+            if isinstance(portfolios, dict):
+                shown_portfolios = portfolios[factor_model.name]
+            else:
+                shown_portfolios = portfolios if portfolios is not None \
+                    else list(factor_model.Y.columns)
+
             label = next(labels_iter)
             color = next(colors_iter)
             error_bars_color = next(error_bars_colors_iter)
 
-            self.__ax_sml.errorbar(factor_model.estimated_betas.values(),
-                                   factor_model.realized_average_returns,
+            lower_error_bars = [rr.lower_error_bar for ptf, rr
+                                in factor_model.items() if ptf
+                                in shown_portfolios]
+            upper_error_bars = [rr.upper_error_bar for ptf, rr
+                                in factor_model.items() if ptf
+                                in shown_portfolios]
+            realized_average_returns = \
+                [ret for ptf, ret in
+                 factor_model.realized_average_returns.items()
+                 if ptf in shown_portfolios]
+
+            beta_list = [rr.beta for ptf, rr in factor_model.items() if ptf
+                         in shown_portfolios]
+
+            self.__ax_sml.errorbar(beta_list,
+                                   realized_average_returns,
                                    linestyle="None",
                                    marker='.',
                                    markersize=15,
-                                   yerr=[factor_model.lower_error_bars,
-                                         factor_model.upper_error_bars],
+                                   yerr=[lower_error_bars, upper_error_bars],
                                    capsize=5,
                                    color=error_bars_color,
                                    markeredgecolor=color,
@@ -149,13 +199,11 @@ class FactorModelVisualizer:
                                    label=label)
 
             # For loop to annotate all points
-            for i in range(len(factor_model.Y.columns)):
-                estimated_betas_list = \
-                    list(factor_model.estimated_betas.values())[i]
-                self.__ax_sml.annotate(factor_model.Y.columns[i],
-                                       (estimated_betas_list,
+            for ptf in shown_portfolios:
+                self.__ax_sml.annotate(ptf,
+                                       (factor_model[ptf].beta,
                                         factor_model.realized_average_returns[
-                                            i] + 0.02),
+                                            ptf] + 0.02),
                                        fontsize=20)
         if type(legend) is str:
             self.__ax_sml.legend(fontsize=15, loc=legend)
@@ -199,3 +247,12 @@ class FactorModelVisualizer:
         sml_array = rf_mean + mkt_rf_mean * beta_array
 
         return beta_array, sml_array
+
+    def __perform_factor_models_calculations(self, confidence_level):
+        for factor_model in self.__factor_models:
+            if factor_model.regression_results is None:
+                factor_model.calculate_realized_vs_predicted_average_returns(
+                    return_results=False)
+            for regression_results in factor_model.values():
+                regression_results.calculate_error_bar(
+                    confidence_level=confidence_level, return_results=True)

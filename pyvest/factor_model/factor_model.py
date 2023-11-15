@@ -2,6 +2,7 @@ import numpy as np
 import statsmodels.api as sm
 
 from pyvest.factor_model.factor_model_visualizer import FactorModelVisualizer
+from pyvest.factor_model.regression_results import RegressionResults
 
 
 class FactorModel:
@@ -20,15 +21,31 @@ class FactorModel:
         self.__Y = self.__returns.sub(self.__r_f, axis=0)
 
         self.__regression_results_dict = None
-        self.__estimated_alpha_dict = None
-        self.__estimated_betas_dict = None
-        self.__realized_average_returns_list = None
-        self.__predicted_average_returns_list = None
-        self.__upper_error_bars_list = None
-        self.__lower_error_bars_list = None
+        self.__realized_average_returns = None
+        self.__predicted_average_returns = None
         self.__name = name
+        self.__portfolios = self.__Y.columns
 
         self.__visualizer = None
+
+    def __getitem__(self, key):
+        regression_results = None
+        if self.__regression_results_dict is not None:
+            regression_results = self.__regression_results_dict[key]
+
+        return regression_results
+
+    def __iter__(self):
+        return iter(self.__regression_results_dict)
+
+    def keys(self):
+        return self.__regression_results_dict.keys()
+
+    def items(self):
+        return self.__regression_results_dict.items()
+
+    def values(self):
+        return self.__regression_results_dict.values()
 
     ##################### X ###################    
     @property
@@ -59,35 +76,15 @@ class FactorModel:
     def regression_results(self):
         return self.__regression_results_dict
 
-    ##################### estimated_alpha ###################    
-    @property
-    def estimated_alpha(self):
-        return self.__estimated_alpha_dict
-
-    ##################### estimated_betas ###################    
-    @property
-    def estimated_betas(self):
-        return self.__estimated_betas_dict
-
     ##################### realized_average_returns ###################    
     @property
     def realized_average_returns(self):
-        return self.__realized_average_returns_list
+        return self.__realized_average_returns
 
     ##################### predicted_average_returns ###################    
     @property
     def predicted_average_returns(self):
-        return self.__predicted_average_returns_list
-
-    ##################### upper_error_bars ###################    
-    @property
-    def upper_error_bars(self):
-        return self.__upper_error_bars_list
-
-    ##################### lower_error_bars ###################    
-    @property
-    def lower_error_bars(self):
-        return self.__lower_error_bars_list
+        return self.__predicted_average_returns
 
     ##################### name ###################
     @property
@@ -98,6 +95,11 @@ class FactorModel:
     def name(self, value):
         self.__name = value
 
+    ##################### portfolios ###################
+    @property
+    def portfolios(self):
+        return list(self.__Y.columns)
+
     ##################### visualizer ###################
     @property
     def visualizer(self):
@@ -106,27 +108,22 @@ class FactorModel:
     ########################## PUBLIC ##########################    
 
     def calculate_regression(self, return_results=True):
-        # Description: estimates CAPM regressions for all self.___Y in the
-        # self.___Y DataFrame and returns dictionaries with estimated alphas,
+        # Description: estimates CAPM regressions for all self.__Y in the
+        # self.__Y DataFrame and returns dictionaries with estimated alphas,
         # estimated betas, and associated confidence interval of every
-        # self.___Y.
+        # self.__Y.
         # Output: dictionaries containing the estimated alpha, beta, and
-        # confidence interval of all self.___Y
+        # confidence interval of all self.__Y
         self.__regression_results_dict = {}
-        self.__estimated_alpha_dict = {}
-        self.__estimated_betas_dict = {}
 
-        for column_name in self.__Y:
-            regression_results, estimated_alpha, estimated_betas = \
-                self.__calculate_single_regression(self.__Y[column_name])
-            self.__regression_results_dict[column_name] = regression_results
-            self.__estimated_alpha_dict[column_name] = estimated_alpha
-            self.__estimated_betas_dict[column_name] = estimated_betas
+        for column_name in self.__Y.columns:
+            regression_results = self.__calculate_single_regression(
+                self.__Y[column_name])
+            self.__regression_results_dict[column_name] = \
+                RegressionResults(regression_results)
 
         if return_results:
-            return self.__regression_results_dict, \
-                   self.__estimated_alpha_dict, \
-                   self.__estimated_betas_dict
+            return self.__regression_results_dict
 
     def calculate_realized_vs_predicted_average_returns(self,
                                                         return_results=True):
@@ -140,55 +137,31 @@ class FactorModel:
         if len(factors_mean.shape) == 0:
             factors_mean = np.array([factors_mean])
 
-        estimated_betas_list = list(self.__estimated_betas_dict.values())
-        estimated_alpha_list = list(self.__estimated_alpha_dict.values())
+        beta_list = [rr.beta for rr
+                     in self.__regression_results_dict.values()]
+        alpha_list = [rr.alpha for rr
+                      in self.__regression_results_dict.values()]
 
-        self.__realized_average_returns_list = []
-        self.__predicted_average_returns_list = []
-        for i in range(0, len(estimated_alpha_list)):
+        self.__realized_average_returns = {}
+        self.__predicted_average_returns = {}
+        for ptf, i in zip(self.portfolios, range(len(self.portfolios))):
             betas_dot_factors_mean = np.dot(factors_mean,
-                                            estimated_betas_list[i])
-            realized_average_returns = estimated_alpha_list[
-                                           i] + rf_mean + betas_dot_factors_mean
+                                            beta_list[i])
+            realized_average_returns = \
+                alpha_list[i] + rf_mean + betas_dot_factors_mean
             predicted_average_returns = rf_mean + betas_dot_factors_mean
 
-            self.__realized_average_returns_list.append(
-                realized_average_returns)
-            self.__predicted_average_returns_list.append(
-                predicted_average_returns)
+            self.__realized_average_returns[ptf] = realized_average_returns
+            self.__predicted_average_returns[ptf] = predicted_average_returns
 
         if return_results:
-            return self.__realized_average_returns_list, \
-                   self.__predicted_average_returns_list
-
-    def calculate_error_bars(self, confidence_level=0.95,
-                             return_results=True):
-
-        if not self.__regression_results_dict:
-            self.calculate_regression(return_results=False)
-
-        self.__upper_error_bars_list = []
-        self.__lower_error_bars_list = []
-        for column_name, estimated_alpha in self.__estimated_alpha_dict.items():
-            conf_int_df = self.__calculate_single_conf_int(
-                self.__regression_results_dict[column_name],
-                confidence_level)
-            upper_error_bar = conf_int_df.loc['const'][
-                                  'Upper bound'] - estimated_alpha
-            lower_error_bar = estimated_alpha - conf_int_df.loc['const'][
-                'Lower bound']
-            self.__upper_error_bars_list.append(upper_error_bar)
-            self.__lower_error_bars_list.append(lower_error_bar)
-
-        if return_results:
-            return self.__lower_error_bars_list, self.__upper_error_bars_list
+            return self.__realized_average_returns, \
+                   self.__predicted_average_returns
 
     def plot(self, compare_with=None, labels=None, colors=None,
-             error_bars_colors=None, legend='upper left', min_return=0,
-             max_return=1.5, confidence_level=0.95, sml=False, beta_min=0,
-             beta_max=2):
-
-        self.__perform_required_calculations(confidence_level)
+             error_bars_colors=None, portfolios=None, legend='upper left',
+             min_return=0, max_return=1.5, confidence_level=None, sml=False,
+             beta_min=0, beta_max=2):
 
         self.__construct_visualizer(compare_with=compare_with, labels=labels,
                                     colors=colors,
@@ -196,17 +169,14 @@ class FactorModel:
 
         if sml:
             self.visualizer.plot_sml(beta_min=beta_min, beta_max=beta_max,
-                                     legend=legend)
+                                     legend=legend, portfolios=portfolios,
+                                     confidence_level=confidence_level)
         else:
             self.visualizer.plot_realized_vs_predicted_average_return(
-                min_return=min_return, max_return=max_return, legend=legend)
+                min_return=min_return, max_return=max_return, legend=legend,
+                portfolios=portfolios, confidence_level=confidence_level)
 
     ########################## PRIVATE ##########################
-
-    def __perform_required_calculations(self, confidence_level):
-        self.calculate_realized_vs_predicted_average_returns(
-            return_results=False)
-        self.calculate_error_bars(confidence_level, return_results=False)
 
     def __construct_visualizer(self, compare_with=None, labels=None,
                                colors=None, error_bars_colors=None):
@@ -246,16 +216,4 @@ class FactorModel:
         linear_model = sm.OLS(y, self.__X)
         regression_results = linear_model.fit()
 
-        estimated_parameters = regression_results.params
-        estimated_alpha = estimated_parameters[0]
-        estimated_betas = estimated_parameters[1:]
-
-        return regression_results, estimated_alpha, estimated_betas
-
-    def __calculate_single_conf_int(self, regression_results,
-                                    confidence_level):
-        conf_int_df = regression_results.conf_int(1 - confidence_level)
-        conf_int_df.rename({0: 'Lower bound', 1: 'Upper bound'}, axis=1,
-                           inplace=True)
-
-        return conf_int_df
+        return regression_results
