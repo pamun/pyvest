@@ -85,8 +85,6 @@ class FactorModelVisualizer:
                 shown_portfolios = portfolios if portfolios is not None \
                     else list(factor_model.Y.columns)
 
-            print(shown_portfolios)
-
             label = next(labels_iter)
             color = next(colors_iter)
             error_bars_color = next(error_bars_colors_iter)
@@ -250,9 +248,9 @@ class FactorModelVisualizer:
 
     def __perform_factor_models_calculations(self, confidence_level):
         for factor_model in self.__factor_models:
-            if factor_model.regression_results is None:
+            if factor_model.realized_average_returns is None:
                 factor_model.calculate_realized_vs_predicted_average_returns(
                     return_results=False)
-            for regression_results in factor_model.values():
-                regression_results.calculate_error_bar(
+            for regression in factor_model.values():
+                regression.calculate_error_bar(
                     confidence_level=confidence_level, return_results=True)

@@ -2,7 +2,7 @@ import numpy as np
 import statsmodels.api as sm
 
 from pyvest.factor_model.factor_model_visualizer import FactorModelVisualizer
-from pyvest.factor_model.regression_results import RegressionResults
+from pyvest.factor_model.regression import Regression
 
 
 class FactorModel:
@@ -19,33 +19,35 @@ class FactorModel:
         self.__X = self.__factors
         self.__X = sm.add_constant(self.__X)
         self.__Y = self.__returns.sub(self.__r_f, axis=0)
+        self.__name = name
 
-        self.__regression_results_dict = None
+        self.__regressions_dict = None
+        self.__construct_regressions()
         self.__realized_average_returns = None
         self.__predicted_average_returns = None
-        self.__name = name
+
         self.__portfolios = self.__Y.columns
 
         self.__visualizer = None
 
     def __getitem__(self, key):
-        regression_results = None
-        if self.__regression_results_dict is not None:
-            regression_results = self.__regression_results_dict[key]
+        regressions = None
+        if self.__regressions_dict is not None:
+            regressions = self.__regressions_dict[key]
 
-        return regression_results
+        return regressions
 
     def __iter__(self):
-        return iter(self.__regression_results_dict)
+        return iter(self.__regressions_dict)
 
     def keys(self):
-        return self.__regression_results_dict.keys()
+        return self.__regressions_dict.keys()
 
     def items(self):
-        return self.__regression_results_dict.items()
+        return self.__regressions_dict.items()
 
     def values(self):
-        return self.__regression_results_dict.values()
+        return self.__regressions_dict.values()
 
     ##################### X ###################    
     @property
@@ -71,10 +73,20 @@ class FactorModel:
     def r_f(self):
         return self.__r_f
 
-    ##################### regression_results ###################    
+    ##################### regressions ###################
     @property
-    def regression_results(self):
-        return self.__regression_results_dict
+    def regressions(self):
+        return self.__regressions_dict
+
+    ##################### regressions_calculated ###################
+    @property
+    def regressions_calculated(self):
+        ret = True if len(self.values()) > 0 else False
+        for regression in self.values():
+            if regression.regression_results is None:
+                ret = False
+
+        return ret
 
     ##################### realized_average_returns ###################    
     @property
@@ -107,29 +119,24 @@ class FactorModel:
 
     ########################## PUBLIC ##########################    
 
-    def calculate_regression(self, return_results=True):
+    def calculate_regressions(self, return_results=True):
         # Description: estimates CAPM regressions for all self.__Y in the
         # self.__Y DataFrame and returns dictionaries with estimated alphas,
         # estimated betas, and associated confidence interval of every
         # self.__Y.
         # Output: dictionaries containing the estimated alpha, beta, and
         # confidence interval of all self.__Y
-        self.__regression_results_dict = {}
 
-        for column_name in self.__Y.columns:
-            regression_results = self.__calculate_single_regression(
-                self.__Y[column_name])
-            self.__regression_results_dict[column_name] = \
-                RegressionResults(regression_results)
+        for regression in self.values():
+            regression.calculate_regression(return_results=False)
 
         if return_results:
-            return self.__regression_results_dict
+            return self.__regressions_dict
 
     def calculate_realized_vs_predicted_average_returns(self,
                                                         return_results=True):
-
-        if not self.__regression_results_dict:
-            self.calculate_regression(return_results=False)
+        if not self.regressions_calculated:
+            self.calculate_regressions(return_results=False)
 
         rf_mean = self.__r_f.mean()
 
@@ -138,15 +145,14 @@ class FactorModel:
             factors_mean = np.array([factors_mean])
 
         beta_list = [rr.beta for rr
-                     in self.__regression_results_dict.values()]
+                     in self.__regressions_dict.values()]
         alpha_list = [rr.alpha for rr
-                      in self.__regression_results_dict.values()]
+                      in self.__regressions_dict.values()]
 
         self.__realized_average_returns = {}
         self.__predicted_average_returns = {}
         for ptf, i in zip(self.portfolios, range(len(self.portfolios))):
-            betas_dot_factors_mean = np.dot(factors_mean,
-                                            beta_list[i])
+            betas_dot_factors_mean = np.dot(factors_mean, beta_list[i])
             realized_average_returns = \
                 alpha_list[i] + rf_mean + betas_dot_factors_mean
             predicted_average_returns = rf_mean + betas_dot_factors_mean
@@ -195,6 +201,13 @@ class FactorModel:
             factor_models, labels=labels, colors=colors,
             error_bars_colors=error_bars_colors)
 
+    def __construct_regressions(self):
+        self.__regressions_dict = {}
+        for column_name in self.__Y.columns:
+            regression = Regression(self.__X, self.__Y[column_name],
+                                    name=self.__name + " - " + column_name)
+            self.__regressions_dict[column_name] = regression
+
     def __check_r_f(self, r_f):
         if len(r_f.shape) != 1 and (len(r_f.shape) != 2 or r_f.shape[1] != 1):
             raise ValueError("The argument of 'r_f' must be one-dimensional.")
@@ -211,9 +224,3 @@ class FactorModel:
             raise ValueError(
                 "The arguments of 'returns' and 'rf' must be of the same length.")
         return True
-
-    def __calculate_single_regression(self, y):
-        linear_model = sm.OLS(y, self.__X)
-        regression_results = linear_model.fit()
-
-        return regression_results
