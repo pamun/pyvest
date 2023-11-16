@@ -2,6 +2,7 @@ from pyvest.data_reader.returns_data_reader import ReturnsDataReader
 from pyvest.data_reader.factors_data_reader import FactorsDataReader
 
 import pandas_datareader.data as web
+from pandas_datareader.famafrench import get_available_datasets
 
 
 class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
@@ -51,15 +52,18 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
             portfolios_df = all_portfolios_df[portfolios]
         else:
             portfolios = self.get_portfolio_names(data_set, decile_only)
-            portfolios_df = all_portfolios_df[portfolios]
+            if portfolios is not None:
+                portfolios_df = all_portfolios_df[portfolios]
+            else:
+                portfolios_df = all_portfolios_df
 
         if rename_portfolios:
             portfolios_df.columns = self.__rename_portfolios(data_set)
 
         return portfolios_df
 
-    def read_additional_info(self, data_set, start_date, end_date, info):
-        pass
+    def get_available_datasets(self):
+        return get_available_datasets()
 
     def get_portfolio_names(self, data_set, decile_only=False):
 
@@ -69,8 +73,8 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
                               + self.__decile_portfolios
         elif data_set in self.__quintile_decile_data_sets and decile_only:
             portfolios = self.__decile_portfolios
-        elif data_set in self.__five_by_five_data_sets:
-            portfolios = self.__five_by_five_portfolios
+        # elif data_set in self.__five_by_five_data_sets:
+        #     portfolios = self.__five_by_five_portfolios
 
         return portfolios
 
@@ -119,7 +123,8 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
         if data_set in self.__quintile_decile_data_sets:
             new_portfolio_names = ['1', '2', '3', '4', '5', '6', '7', '8',
                                    '9', '10']
-        elif data_set in self.__five_by_five_data_sets:
+        # elif data_set in self.__five_by_five_data_sets:
+        else:
             new_portfolio_names = ['(' + str(i) + ',' + str(j) + ')'
                                    for i in range(1, 6) for j in range(1, 6)]
 
