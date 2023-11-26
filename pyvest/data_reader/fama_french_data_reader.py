@@ -42,9 +42,8 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
 
         portfolios_dict_key = self.__get_portfolios_dict_key(freq, weighting)
 
-        portfolios_dict = web.DataReader(data_set,
-                                         'famafrench', start=start_date,
-                                         end=end_date)
+        portfolios_dict = web.DataReader(data_set, 'famafrench',
+                                         start=start_date, end=end_date)
 
         all_portfolios_df = portfolios_dict[portfolios_dict_key]
 
@@ -70,7 +69,7 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
         portfolios = None
         if data_set in self.__quintile_decile_data_sets and not decile_only:
             portfolios = self.__quintile_portfolios \
-                              + self.__decile_portfolios
+                         + self.__decile_portfolios
         elif data_set in self.__quintile_decile_data_sets and decile_only:
             portfolios = self.__decile_portfolios
         # elif data_set in self.__five_by_five_data_sets:
@@ -100,14 +99,14 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
             portfolios = self.__decile_portfolios
         elif data_set in self.__five_by_five_data_sets:
             portfolios = ['SMALL LoBETA', 'ME1 BETA2', 'ME1 BETA3',
-                               'ME1 BETA4', 'SMALL HiBETA', 'ME2 BETA1',
-                               'ME2 BETA2', 'ME2 BETA3', 'ME2 BETA4',
-                               'ME2 BETA5', 'ME3 BETA1', 'ME3 BETA2',
-                               'ME3 BETA3', 'ME3 BETA4', 'ME3 BETA5',
-                               'ME4 BETA1', 'ME4 BETA2', 'ME4 BETA3',
-                               'ME4 BETA4', 'ME4 BETA5', 'BIG LoBETA',
-                               'ME5 BETA2', 'ME5 BETA3', 'ME5 BETA4',
-                               'BIG HiBETA']
+                          'ME1 BETA4', 'SMALL HiBETA', 'ME2 BETA1',
+                          'ME2 BETA2', 'ME2 BETA3', 'ME2 BETA4',
+                          'ME2 BETA5', 'ME3 BETA1', 'ME3 BETA2',
+                          'ME3 BETA3', 'ME3 BETA4', 'ME3 BETA5',
+                          'ME4 BETA1', 'ME4 BETA2', 'ME4 BETA3',
+                          'ME4 BETA4', 'ME4 BETA5', 'BIG LoBETA',
+                          'ME5 BETA2', 'ME5 BETA3', 'ME5 BETA4',
+                          'BIG HiBETA']
 
         return portfolios
 
@@ -119,8 +118,8 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
         #   French's website
         # Output: a list of portfolio names
 
-        new_portfolio_names = None
-        if data_set in self.__quintile_decile_data_sets:
+        if data_set in self.__quintile_decile_data_sets \
+                or data_set in self.__prior_data_sets:
             new_portfolio_names = ['1', '2', '3', '4', '5', '6', '7', '8',
                                    '9', '10']
         # elif data_set in self.__five_by_five_data_sets:
@@ -131,12 +130,13 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
         return new_portfolio_names
 
     def __define_datasets(self):
-        self.__quintile_decile_data_sets = ['Portfolios_Formed_on_ME',
-                                            'Portfolios_Formed_on_BE-ME',
-                                            '10_Portfolios_Prior_12_2',
-                                            '10_Portfolios_Prior_1_0',
-                                            '10_Portfolios_Prior_60_13',
-                                            'Portfolios_Formed_on_BETA']
+        self.__quintile_decile_data_sets = ['Portfolios_Formed_on_BETA',
+                                            'Portfolios_Formed_on_ME',
+                                            'Portfolios_Formed_on_BE-ME']
+
+        self.__prior_data_sets = ['10_Portfolios_Prior_12_2',
+                                  '10_Portfolios_Prior_1_0',
+                                  '10_Portfolios_Prior_60_13']
 
         self.__five_by_five_data_sets = ['25_Portfolios_ME_BETA_5x5',
                                          '25_Portfolios_5x5',
@@ -153,6 +153,11 @@ class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
         self.__decile_portfolios = [
             'Lo 10', 'Dec 2', 'Dec 3', 'Dec 4', 'Dec 5', 'Dec 6', 'Dec 7',
             'Dec 8', 'Dec 9', 'Hi 10'
+        ]
+
+        self.__prior_portfolios = [
+            'Lo PRIOR', 'PRIOR 2', 'PRIOR 3', 'PRIOR 4', 'PRIOR 5', 'PRIOR 6',
+            'PRIOR 7', 'PRIOR 8', 'PRIOR 9', 'Hi PRIOR'
         ]
 
         # TODO: NOT GENERAL ENOUGH
