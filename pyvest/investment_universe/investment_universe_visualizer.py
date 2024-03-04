@@ -18,17 +18,19 @@ class InvestmentUniverseVisualizer:
             self.__label = label
             self.__investors = investors
 
+            self.__zorder = 1 / priority
+
         def plot(self):
             if self.__investment_universe is not None \
                     and self.__investors is not None:
                 self.__plot_function(self.__investment_universe,
                                      self.__investors, self.__label,
-                                     self.__size)
+                                     self.__size, self.__zorder)
             elif self.__investment_universe is not None:
                 self.__plot_function(self.__investment_universe, self.__label,
-                                     self.__size)
+                                     self.__size, self.__zorder)
             else:
-                self.__plot_function(self.__label, self.__size)
+                self.__plot_function(self.__label, self.__size, self.__zorder)
 
         def __lt__(self, other):
             return self.__priority < other.__priority
@@ -173,36 +175,36 @@ class InvestmentUniverseVisualizer:
         self.__investors = value
 
     @property
-    def min_mu(self):
-        return self.__min_mu
+    def min_expected_return(self):
+        return self.__min_expected_return
 
-    @min_mu.setter
-    def min_mu(self, value):
-        self.__min_mu = value
+    @min_expected_return.setter
+    def min_expected_return(self, value):
+        self.__min_expected_return = value
 
     @property
     def max_mu(self):
-        return self.__max_mu
+        return self.__max_expected_return
 
     @max_mu.setter
     def max_mu(self, value):
-        self.__max_mu = value
+        self.__max_expected_return = value
 
     @property
-    def min_std(self):
-        return self.__min_std
+    def min_standard_deviation(self):
+        return self.__min_standard_deviation
 
-    @min_std.setter
-    def min_std(self, value):
-        self.__min_std = value
+    @min_standard_deviation.setter
+    def min_standard_deviation(self, value):
+        self.__min_standard_deviation = value
 
     @property
-    def max_std(self):
-        return self.__max_std
+    def max_standard_deviation(self):
+        return self.__max_standard_deviation
 
-    @max_std.setter
-    def max_std(self, value):
-        self.__max_std = value
+    @max_standard_deviation.setter
+    def max_standard_deviation(self, value):
+        self.__max_standard_deviation = value
 
     @property
     def investment_universes(self):
@@ -251,27 +253,30 @@ class InvestmentUniverseVisualizer:
 
     ######################### PUBLIC FUNCTIONS ########################
 
-    def plot(self, figsize=(16, 9), zoom_individual=False, min_mu=None,
-             max_mu=None, min_std=None, max_std=None, investors=None,
-             indifference_curves=None, legend='upper left'):
+    def plot(self, figsize=(16, 9), zoom_individual=False,
+             min_expected_return=None, max_expected_return=None,
+             min_standard_deviation=None, max_standard_deviation=None,
+             investors=None, indifference_curves=None, legend='upper left'):
 
         self.__calculate_visible_portfolios_mu_std(zoom_individual, investors)
         self.__set_default_std_limits()
         self.__set_default_mu_limits()
 
-        if min_mu is not None:
-            self.__min_mu = min_mu
-        if max_mu is not None:
-            self.__max_mu = max_mu
-        if min_std is not None:
-            self.__min_std = min_std
-        if max_std is not None:
-            self.__max_std = max_std
+        if min_expected_return is not None:
+            self.__min_expected_return = min_expected_return
+        if max_expected_return is not None:
+            self.__max_expected_return = max_expected_return
+        if min_standard_deviation is not None:
+            self.__min_standard_deviation = min_standard_deviation
+        if max_standard_deviation is not None:
+            self.__max_standard_deviation = max_standard_deviation
 
         self.__fig, self.__ax = plt.subplots(figsize=figsize)
 
-        self.__ax.set_xlim([self.__min_std, self.__max_std])
-        self.__ax.set_ylim([self.__min_mu, self.__max_mu])
+        self.__ax.set_xlim([self.__min_standard_deviation,
+                            self.__max_standard_deviation])
+        self.__ax.set_ylim([self.__min_expected_return,
+                            self.__max_expected_return])
         self.__ax.grid()
 
         self.__ax.set_title("Risk-return tradeoff", fontsize=35)
@@ -308,20 +313,18 @@ class InvestmentUniverseVisualizer:
         mu_list = [mu for mu, std in self.__visible_portfolios_mu_std_list]
         border_abs_value = border_padding * max(mu_list)
 
-        self.__min_mu = 0 if min(mu_list) >= 0 \
+        self.__min_expected_return = 0 if min(mu_list) >= 0 \
             else min(mu_list) - border_abs_value
-        # self.__min_mu = min(0, min(mu_list) - border_abs_value)
-        self.__max_mu = max(mu_list) + border_abs_value
+        self.__max_expected_return = max(mu_list) + border_abs_value
 
     def __set_default_std_limits(self, border_padding=0.1):
 
         std_list = [std for mu, std in self.__visible_portfolios_mu_std_list]
         border_abs_value = border_padding * max(std_list)
 
-        self.__min_std = 0 if min(std_list) >= 0 \
+        self.__min_standard_deviation = 0 if min(std_list) >= 0 \
             else min(std_list) - border_abs_value
-        # self.__min_std = min(0, min(std_list) - border_abs_value)
-        self.__max_std = max(std_list) + border_abs_value
+        self.__max_standard_deviation = max(std_list) + border_abs_value
 
     def __calculate_visible_portfolios_mu_std(self, zoom_individual,
                                               investors):
@@ -382,7 +385,7 @@ class InvestmentUniverseVisualizer:
                 asset_index += 1
             inv_univ_index += 1
 
-    def __plot_feasible_portfolios(self, investment_universe, label, size):
+    def __plot_feasible_portfolios(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible"]
 
@@ -397,10 +400,10 @@ class InvestmentUniverseVisualizer:
                           s=size,
                           alpha=self.__alpha,
                           label=legend_label,
-                          color=color)
+                          color=color, zorder=zorder)
 
     def __plot_feasible_portfolios_with_r_f(self, investment_universe, label,
-                                            size):
+                                            size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible_with_r_f"]
 
@@ -418,9 +421,138 @@ class InvestmentUniverseVisualizer:
                           s=size,
                           alpha=self.__alpha,
                           label=legend_label,
-                          color=color)
+                          color=color, zorder=zorder)
 
-    def __plot_efficient_portfolios(self, investment_universe, label, size=50):
+    def __plot_feasible_portfolios_surface(self, investment_universe, label,
+                                           size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["feasible"]
+
+        # feasible_portfolios_std_list = []
+        # feasible_portfolios_mu_list = []
+        # for ptf_pair in investment_universe.feasible_portfolios_surface:
+        #
+        #     mu = ptf_pair[0].expected_return
+        #     sigma_min = ptf_pair[0].standard_deviation
+        #     sigma_max = ptf_pair[1].standard_deviation
+        #
+        #     feasible_portfolios_std_list.append(sigma_min)
+        #     feasible_portfolios_mu_list.append(mu)
+        #
+        #     feasible_portfolios_std_list.append(sigma_max)
+        #     feasible_portfolios_mu_list.append(mu)
+        #
+        #     for sigma in np.arange(sigma_min, sigma_max + 0.01, 0.01):
+        #         feasible_portfolios_std_list.append(sigma)
+        #         feasible_portfolios_mu_list.append(mu)
+
+        mu_sigma_tuples_list = []
+        for ptf_pair in investment_universe.feasible_portfolios_surface:
+
+            mu = ptf_pair[0].expected_return
+            sigma_min = ptf_pair[0].standard_deviation
+            sigma_max = ptf_pair[1].standard_deviation
+
+            mu_sigma_tuples_list.append((mu, sigma_min, sigma_max))
+
+            # feasible_portfolios_mu_list.append(mu)
+            # feasible_portfolios_std_min_list.append(sigma_min)
+            # feasible_portfolios_std_max_list.append(sigma_max)
+
+            # print(mu, sigma_min, sigma_max)
+
+        mu_sigma_tuples_list = sorted(mu_sigma_tuples_list, key=lambda x: x[0])
+        mu_sigma_min_max_list = list(zip(*mu_sigma_tuples_list))
+        feasible_portfolios_mu_list = mu_sigma_min_max_list[0]
+        feasible_portfolios_std_min_list = mu_sigma_min_max_list[1]
+        feasible_portfolios_std_max_list = mu_sigma_min_max_list[2]
+
+        legend_label = self.__complete_label("Feasible portfolios", label)
+        # self.__ax.scatter(feasible_portfolios_std_list,
+        #                   feasible_portfolios_mu_list,
+        #                   s=size,
+        #                   alpha=self.__alpha,
+        #                   label=legend_label,
+        #                   color=color, zorder=zorder)
+        self.__ax.fill_betweenx(feasible_portfolios_mu_list,
+                                feasible_portfolios_std_min_list,
+                                feasible_portfolios_std_max_list,
+                                linewidth=size,
+                                alpha=self.__alpha,
+                                label=legend_label,
+                                color=color, zorder=zorder)
+
+    def __plot_feasible_portfolios_surface_with_r_f(self, investment_universe,
+                                                    label, size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["feasible_with_r_f"]
+
+        mu_sigma_tuples_list = []
+        for ptf_pair in investment_universe.feasible_portfolios_surface_with_r_f:
+            mu = ptf_pair[0].expected_return
+            sigma_min = ptf_pair[0].standard_deviation
+            sigma_max = ptf_pair[1].standard_deviation
+
+            mu_sigma_tuples_list.append((mu, sigma_min, sigma_max))
+
+        mu_sigma_tuples_list = sorted(mu_sigma_tuples_list, key=lambda x: x[0])
+        mu_sigma_min_max_list = list(zip(*mu_sigma_tuples_list))
+        feasible_portfolios_mu_list = mu_sigma_min_max_list[0]
+        feasible_portfolios_std_min_list = mu_sigma_min_max_list[1]
+        feasible_portfolios_std_max_list = mu_sigma_min_max_list[2]
+
+        legend_label = self.__complete_label("Feasible portfolios with r_f",
+                                             label)
+        self.__ax.fill_betweenx(feasible_portfolios_mu_list,
+                                feasible_portfolios_std_min_list,
+                                feasible_portfolios_std_max_list,
+                                linewidth=size,
+                                alpha=self.__alpha,
+                                label=legend_label,
+                                color=color, zorder=zorder)
+
+    def __plot_feasible_portfolios_equation(self, investment_universe, label,
+                                            size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["feasible"]
+
+        nb_points = 100
+        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
+
+        exp_ret_list = list(np.arange(self.__min_expected_return, self.__max_expected_return, step))
+        std_list = [investment_universe.feasible_portfolios_equation(mu)
+                    for mu in exp_ret_list]
+
+        legend_label = self.__complete_label("Feasible portfolios", label)
+        self.__ax.fill_betweenx(exp_ret_list, std_list, self.__max_standard_deviation,
+                                linewidth=size,
+                                alpha=self.__alpha,
+                                label=legend_label,
+                                color=color, zorder=zorder)
+
+    def __plot_feasible_portfolios_equation_with_r_f(self, investment_universe,
+                                                     label, size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["feasible_with_r_f"]
+
+        nb_points = 100
+        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
+
+        exp_ret_list = list(np.arange(self.__min_expected_return, self.__max_expected_return, step))
+        std_list = [
+            investment_universe.feasible_portfolios_equation_with_r_f(mu)
+            for mu in exp_ret_list]
+
+        legend_label = self.__complete_label("Feasible portfolios with r_f",
+                                             label)
+        self.__ax.fill_betweenx(exp_ret_list, std_list, self.__max_standard_deviation,
+                                linewidth=size,
+                                alpha=self.__alpha,
+                                label=legend_label,
+                                color=color, zorder=zorder)
+
+    def __plot_efficient_frontier(self, investment_universe, label, size,
+                                  zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["efficient"]
 
@@ -430,11 +562,38 @@ class InvestmentUniverseVisualizer:
             map(lambda x: x.standard_deviation,
                 investment_universe.efficient_frontier))
         legend_label = self.__complete_label("Efficient frontier", label)
-        self.__ax.scatter(efficient_portfolios_std_list,
-                          efficient_portfolios_mu_list, color=color, s=size,
-                          label=legend_label)
 
-    def __plot_cal(self, investment_universe, label, size=20):
+        self.__ax.plot(efficient_portfolios_std_list,
+                       efficient_portfolios_mu_list,
+                       linewidth=size, alpha=self.__alpha, label=legend_label,
+                       color=color, zorder=zorder)
+
+        # self.__ax.scatter(efficient_portfolios_std_list,
+        #                   efficient_portfolios_mu_list, color=color, s=size,
+        #                   label=legend_label, zorder=zorder)
+
+    def __plot_efficient_frontier_equation(self, investment_universe, label,
+                                           size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["efficient"]
+
+        efficient_frontier_equation = \
+            investment_universe.efficient_frontier_equation["equation"]
+        mvp_mu_sigma = investment_universe.efficient_frontier_equation["mvp"]
+        mvp_mu = mvp_mu_sigma[0]
+
+        nb_points = 100
+        step = (self.__max_expected_return - mvp_mu) / nb_points
+
+        exp_ret_list = list(np.arange(mvp_mu, self.__max_expected_return, step))
+        std_list = [efficient_frontier_equation(mu) for mu in exp_ret_list]
+
+        legend_label = self.__complete_label("Efficient frontier", label)
+        self.__ax.plot(std_list, exp_ret_list, linewidth=size,
+                       alpha=self.__alpha, label=legend_label, color=color,
+                       zorder=zorder)
+
+    def __plot_cal(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["cal"]
 
@@ -443,10 +602,31 @@ class InvestmentUniverseVisualizer:
         cal_portfolios_std_list = list(map(lambda x: x.standard_deviation,
                                            investment_universe.cal))
         legend_label = self.__complete_label("CAL", label)
-        self.__ax.scatter(cal_portfolios_std_list, cal_portfolios_mu_list,
-                          s=size, label=legend_label, color=color)
+        self.__ax.plot(cal_portfolios_std_list, cal_portfolios_mu_list,
+                       linewidth=size, alpha=self.__alpha, label=legend_label,
+                       color=color, zorder=zorder)
+        # self.__ax.scatter(cal_portfolios_std_list, cal_portfolios_mu_list,
+        #                   s=size, label=legend_label, color=color,
+        #                   zorder=zorder)
 
-    def __plot_assets(self, label, size=200):
+    def __plot_cal_equation(self, investment_universe, label, size, zorder):
+        color_label = label if label is not None else "1"
+        color = self.__colors[color_label]["cal"]
+
+        nb_points = 100
+        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
+
+        exp_ret_list = list(np.arange(investment_universe.r_f, self.__max_expected_return,
+                                      step))
+        std_list = [investment_universe.cal_equation(mu)
+                    for mu in exp_ret_list]
+
+        legend_label = self.__complete_label("CAL", label)
+        self.__ax.plot(std_list, exp_ret_list, linewidth=size,
+                       alpha=self.__alpha, label=legend_label, color=color,
+                       zorder=zorder)
+
+    def __plot_assets(self, label, size, zorder):
         color_label = label if label is not None else "1"
         color_iter = iter(self.__colors[color_label]["assets"])
 
@@ -468,9 +648,9 @@ class InvestmentUniverseVisualizer:
             self.__ax.scatter(inv_univ.std[asset_index],
                               inv_univ.mu[asset_index], s=size,
                               label=legend_label,
-                              color=color)
+                              color=color, zorder=zorder)
 
-    def __plot_mvp(self, investment_universe, label, size=200):
+    def __plot_mvp(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["mvp"]
 
@@ -481,9 +661,9 @@ class InvestmentUniverseVisualizer:
         legend_label = self.__complete_label("MVP - " + weights, label)
         self.__ax.scatter(investment_universe.mvp.standard_deviation,
                           investment_universe.mvp.expected_return, s=size,
-                          label=legend_label, color=color)
+                          label=legend_label, color=color, zorder=zorder)
 
-    def __plot_r_f(self, investment_universe, label, size=200):
+    def __plot_r_f(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["r_f"]
 
@@ -497,9 +677,9 @@ class InvestmentUniverseVisualizer:
         legend_label = "r_f - " + weights_str
 
         self.__ax.scatter(0, investment_universe.r_f, s=size,
-                          label=legend_label, color=color)
+                          label=legend_label, color=color, zorder=zorder)
 
-    def __plot_tangency_portfolio(self, investment_universe, label, size=200):
+    def __plot_tangency_portfolio(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["tangency"]
 
@@ -513,9 +693,9 @@ class InvestmentUniverseVisualizer:
         self.__ax.scatter(
             investment_universe.tangency_portfolio.standard_deviation,
             investment_universe.tangency_portfolio.expected_return, s=size,
-            label=legend_label, color=color)
+            label=legend_label, color=color, zorder=zorder)
 
-    def __plot_other_portfolios(self, investment_universe, label, size=200):
+    def __plot_other_portfolios(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color_iter = iter(self.__colors[color_label]["others"])
 
@@ -540,9 +720,9 @@ class InvestmentUniverseVisualizer:
 
             self.__ax.scatter(portfolio.standard_deviation,
                               portfolio.expected_return, s=size,
-                              label=legend_label, color=color)
+                              label=legend_label, color=color, zorder=zorder)
 
-    def __plot_market_portfolio(self, investment_universe, label, size=200):
+    def __plot_market_portfolio(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["market"]
 
@@ -556,10 +736,10 @@ class InvestmentUniverseVisualizer:
         self.__ax.scatter(
             investment_universe.market_portfolio.standard_deviation,
             investment_universe.market_portfolio.expected_return, s=size,
-            label=legend_label, color=color)
+            label=legend_label, color=color, zorder=zorder)
 
     def __plot_investors_portfolio(self, investment_universe, investor_names,
-                                   label, size=200):
+                                   label, size, zorder):
 
         for investor_name in investor_names:
             if investor_name in investment_universe.investors:
@@ -578,10 +758,10 @@ class InvestmentUniverseVisualizer:
                 self.__ax.scatter(
                     investor.portfolio.standard_deviation,
                     investor.portfolio.expected_return,
-                    s=size, label=legend_label, color=color)
+                    s=size, label=legend_label, color=color, zorder=zorder)
 
     def __plot_indifference_curves(self, investment_universe, investor_names,
-                                   label, size=50):
+                                   label, size, zorder):
 
         for investor_name in investor_names:
             if investor_name in investment_universe.investors:
@@ -594,16 +774,18 @@ class InvestmentUniverseVisualizer:
                 for utility in utility_list:
                     std_array, mu_array = \
                         investor.calculate_indifference_curve(
-                            utility, min_std=self.__min_std,
-                            max_std=self.__max_std)
-                    self.__ax.plot(std_array, mu_array, color=color)
+                            utility, min_std=self.__min_standard_deviation,
+                            max_std=self.__max_standard_deviation)
+                    self.__ax.plot(std_array, mu_array, linewidth=size,
+                                   alpha=self.__alpha, color=color,
+                                   zorder=zorder)
 
     def get_utility_list(self, portfolio_utility):
         nb_curves = 5
 
-        min_utility = 2 * self.__min_mu - self.__max_mu
-        max_utility = self.__max_mu
-        utility_step = (self.__max_mu - self.__min_mu) / nb_curves
+        min_utility = 2 * self.__min_expected_return - self.__max_expected_return
+        max_utility = self.__max_expected_return
+        utility_step = (self.__max_expected_return - self.__min_expected_return) / nb_curves
 
         utility_list = []
 
@@ -752,19 +934,19 @@ class InvestmentUniverseVisualizer:
                 },
                 "cal": {
                     "priority": 60 - inv_univ_index,
-                    "size": 20
+                    "size": 6
                 },
                 "efficient_portfolios": {
                     "priority": 70 - inv_univ_index,
-                    "size": 50
+                    "size": 6
                 },
                 "feasible_portfolios": {
                     "priority": 80 - inv_univ_index,
-                    "size": 50
+                    "size": 0
                 },
                 "feasible_portfolios_with_r_f": {
                     "priority": 90 - inv_univ_index,
-                    "size": 50
+                    "size": 0
                 },
                 "indifference_curves": {
                     "priority": 100 - inv_univ_index,
@@ -832,10 +1014,25 @@ class InvestmentUniverseVisualizer:
                                        properties["cal"]["priority"],
                                        properties["cal"]["size"], inv_univ,
                                        label))
+            if inv_univ.cal_equation \
+                    and self.__cal_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(self.__plot_cal_equation,
+                                       properties["cal"]["priority"],
+                                       properties["cal"]["size"], inv_univ,
+                                       label))
             if inv_univ.efficient_frontier \
                     and self.__efficient_frontier_visible:
                 self.__visual_elements_list.append(
-                    self.VisualElement(self.__plot_efficient_portfolios,
+                    self.VisualElement(self.__plot_efficient_frontier,
+                                       properties["efficient_portfolios"][
+                                           "priority"],
+                                       properties["efficient_portfolios"][
+                                           "size"], inv_univ, label))
+            if inv_univ.efficient_frontier_equation \
+                    and self.__efficient_frontier_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(self.__plot_efficient_frontier_equation,
                                        properties["efficient_portfolios"][
                                            "priority"],
                                        properties["efficient_portfolios"][
@@ -856,6 +1053,41 @@ class InvestmentUniverseVisualizer:
                         properties["feasible_portfolios_with_r_f"]["priority"],
                         properties["feasible_portfolios_with_r_f"]["size"],
                         inv_univ, label))
+            if inv_univ.feasible_portfolios_surface \
+                    and self.__feasible_portfolios_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(self.__plot_feasible_portfolios_surface,
+                                       properties["feasible_portfolios"][
+                                           "priority"],
+                                       properties["feasible_portfolios"][
+                                           "size"], inv_univ, label))
+            if inv_univ.feasible_portfolios_surface_with_r_f \
+                    and self.__feasible_portfolios_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(
+                        self.__plot_feasible_portfolios_surface_with_r_f,
+                        properties["feasible_portfolios_with_r_f"][
+                            "priority"],
+                        properties["feasible_portfolios_with_r_f"][
+                            "size"], inv_univ, label))
+            if inv_univ.feasible_portfolios_equation \
+                    and self.__feasible_portfolios_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(
+                        self.__plot_feasible_portfolios_equation,
+                        properties["feasible_portfolios"][
+                            "priority"],
+                        properties["feasible_portfolios"][
+                            "size"], inv_univ, label))
+            if inv_univ.feasible_portfolios_equation_with_r_f \
+                    and self.__feasible_portfolios_visible:
+                self.__visual_elements_list.append(
+                    self.VisualElement(
+                        self.__plot_feasible_portfolios_equation_with_r_f,
+                        properties["feasible_portfolios_with_r_f"][
+                            "priority"],
+                        properties["feasible_portfolios_with_r_f"][
+                            "size"], inv_univ, label))
             if inv_univ.market_portfolio \
                     and self.__market_portfolio_visible:
                 self.__visual_elements_list.append(
@@ -897,5 +1129,3 @@ class InvestmentUniverseVisualizer:
             self.__investors_colors[investor_name] = investor_color
 
         return investor_color
-
-

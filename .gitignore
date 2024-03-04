@@ -5,15 +5,12 @@ TODO
 .idea/misc.xml
 .idea/modules.xml
 .idea/vcs.xml
-/examples
 /scripts
 *.pyc
 pyvest.egg-info
 dist
 pyvest_2023_03_12.zip
-examples/test.py
-examples/investment_universe_test.py
-examples/finance_library_investment_universe_tests.ipynb
 .idea/pyvest.iml
 .idea/.name
-examples/test.py
+/examples/.ipynb_checkpoints/
+/examples/tests/
