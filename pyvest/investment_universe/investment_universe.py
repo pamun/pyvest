@@ -267,35 +267,10 @@ class InvestmentUniverse:
         portfolios_generator.generate_portfolios(
             nb_portfolios=nb_portfolios, distance=0.05)
         if with_r_f:
-            # self.__feasible_portfolios_with_r_f = feasible_portfolios
             self.__feasible_portfolios_surface_with_r_f = \
                 portfolios_generator.frontier
         else:
-            # self.__feasible_portfolios = feasible_portfolios
             self.__feasible_portfolios_surface = portfolios_generator.frontier
-
-    def calculate_feasible_portfolios_surface(self, nb_portfolios=20000,
-                                              with_r_f=False,
-                                              return_portfolios=False):
-
-        if self.__feasible_portfolios_generator_frontier is None:
-            self.__feasible_portfolios_generator_frontier = \
-                FeasiblePortfoliosGeneratorFrontier(self, with_r_f)
-
-        if self.__feasible_portfolios_generator_frontier.frontier is None:
-            self.__feasible_portfolios_generator_frontier.generate_portfolios(
-                nb_portfolios=nb_portfolios, distance=0.05)
-
-        feasible_portfolios_surface = \
-            self.__feasible_portfolios_generator_frontier.frontier
-        if with_r_f:
-            self.__feasible_portfolios_surface_with_r_f = \
-                feasible_portfolios_surface
-        else:
-            self.__feasible_portfolios_surface = feasible_portfolios_surface
-
-        if return_portfolios:
-            return feasible_portfolios_surface
 
     def calculate_mvp(self, x0=None):
 
@@ -516,7 +491,7 @@ class InvestmentUniverse:
         else:
             raise TypeError("The variable 'portfolio' must be an object of "
                             "type Portfolio or a list of weights of dimension "
-                            "{}.".format(self.__nb_risky_assets))
+                            "{}.".format(self.__nb_assets))
 
         if self.__other_portfolios is None:
             self.__other_portfolios = {}
@@ -545,11 +520,20 @@ class InvestmentUniverse:
             raise TypeError("The parameter 'portfolio' must be either a "
                             "Portfolio, a list of weights, or a string!")
 
+    def get_portfolio_by_name(self, portfolio_name):
+        portfolio = None
+        if self.__other_portfolios is not None:
+            for weights, (ptf_obj, name) in self.__other_portfolios.items():
+                if name == portfolio_name:
+                    portfolio = ptf_obj
+
+        return portfolio
+
     def plot(self, compare_with=None, labels=None, weights_visible=True,
              zoom_individual=False, min_expected_return=None,
              max_expected_return=None, min_standard_deviation=None,
              max_standard_deviation=None, investors=None,
-             indifference_curves=None,
+             indifference_curves=None, optimal_portfolios=True,
              legend='upper left'):
         investment_universes = [self]
         if isinstance(compare_with, InvestmentUniverse):
@@ -572,16 +556,18 @@ class InvestmentUniverse:
                                max_standard_deviation=max_standard_deviation,
                                investors=investors,
                                indifference_curves=indifference_curves,
+                               optimal_portfolios=optimal_portfolios,
                                legend=legend)
 
-    def add_investor(self, wealth, portfolio=None, gamma=None,
+    def add_investor(self, gamma, wealth=None, portfolio=None,
                      utility_function=None, name=None):
-
-        investor = Investor(self, wealth, portfolio, gamma, utility_function)
 
         if name is None:
             self.__nb_unnamed_investors += 1
             name = "Investor {}".format(self.__nb_unnamed_investors)
+
+        investor = Investor(self, gamma, wealth, portfolio, utility_function,
+                            name)
 
         self.__investors[name] = investor
 
@@ -611,6 +597,25 @@ class InvestmentUniverse:
                                             assets=self.__assets)
 
         return self.__market_portfolio
+
+    def calculate_optimal_portfolios(self, investors=None):
+
+        if investors is None:
+            investors = self.investors
+        elif type(investors) is str:
+            investors = [investors]
+
+        optimal_portfolios = {}
+        for investor_name in investors:
+            investor = self.investors[investor_name]
+            optimal_portfolio = investor.calculate_optimal_portfolio()
+            optimal_portfolios[investor_name] \
+                = {
+                "portfolio": optimal_portfolio,
+                "utility": investor.optimal_portfolio_utility
+            }
+
+        return optimal_portfolios
 
     ########################## PRIVATE ##########################
 
@@ -654,7 +659,9 @@ class InvestmentUniverse:
                 "list, or None.")
 
     def __assign_min_weight_r_f(self, min_weight_r_f):
-        if min_weight_r_f is None:
+        if min_weight_r_f is None and self.__min_weights is None:
+            self.__min_weight_r_f = None
+        elif min_weight_r_f is None:
             self.__min_weight_r_f = self.__parameters["min_weight_r_f"]
         else:
             self.__min_weight_r_f = min_weight_r_f

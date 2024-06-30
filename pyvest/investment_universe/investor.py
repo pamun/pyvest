@@ -11,20 +11,17 @@ from scipy.optimize import Bounds
 
 class Investor:
 
-    def __init__(self, investment_universe=None, wealth=0, portfolio=None,
-                 gamma=None, utility_function=None,
+    def __init__(self, investment_universe, gamma, wealth=None, portfolio=None,
+                 utility_function=None, name=None,
                  optimization_tolerance=1e-6):
 
         self.__assign_investment_universe(investment_universe)
         self.__assign_gamma(gamma)
+        self.__assign_wealth(wealth)
+        self.__assign_portfolio(portfolio)
+        self.__assign_name(name)
         self.__assign_utility_function(utility_function)
         self.__assign_optimization_tolerance(optimization_tolerance)
-        self.__assign_wealth(wealth)
-
-        if portfolio is None and gamma is not None:
-            portfolio = self.calculate_optimal_portfolio()
-
-        self.__assign_portfolio(portfolio)
 
         self.__optimal_portfolio = None
 
@@ -94,6 +91,10 @@ class Investor:
                                        self.__optimal_portfolio.augmented_cov,
                                        self.gamma)
 
+    @property
+    def name(self):
+        return self.__name
+
     ################################# PUBLIC ##################################
 
     def calculate_optimal_portfolio(self, x0=None):
@@ -110,19 +111,23 @@ class Investor:
         sum_weights_assets_equals_one_constraint = LinearConstraint(
             np.ones(nb_assets), 1, 1)
 
-        if self.__investment_universe.r_f is None:
+        if self.__investment_universe.min_weight is None \
+                and self.__investment_universe.min_weight_r_f is None:
+            min_weights = None
+        elif self.__investment_universe.r_f is None:
             min_weights = self.__investment_universe.min_weight
         else:
             min_weights = np.append(self.__investment_universe.min_weight,
                                     self.__investment_universe.min_weight_r_f)
 
-        min_weight_bound = Bounds(min_weights, np.inf)
+        min_weights_bound = Bounds(min_weights, np.inf) \
+            if min_weights is not None else None
 
         optimal_portfolio_result = minimize(
             lambda x: - self.__utility_function(
                 x, self.__investment_universe.augmented_mu,
                 self.__investment_universe.augmented_cov, self.__gamma), x0,
-            bounds=min_weight_bound,
+            bounds=min_weights_bound,
             constraints=[sum_weights_assets_equals_one_constraint],
             tol=self.__optimization_tolerance)
 
@@ -144,6 +149,24 @@ class Investor:
 
         return std_array, mu_array
 
+    def calculate_portfolio_utility(self, portfolio):
+
+        if isinstance(portfolio, Portfolio):
+            portfolio_obj = portfolio
+        elif (isinstance(portfolio, list) or isinstance(portfolio, np.ndarray)
+              or isinstance(portfolio, tuple)):
+            portfolio_obj = Portfolio(portfolio, self.investment_universe.mu,
+                                      self.investment_universe.cov,
+                                      r_f=self.investment_universe.r_f,
+                                      assets=self.investment_universe.assets)
+        else:
+            raise TypeError("The variable 'portfolio' must be an object of "
+                            "type Portfolio or a list of weights.")
+
+        return self.__utility_function(portfolio_obj.weights,
+                                       portfolio_obj.augmented_mu,
+                                       portfolio_obj.augmented_cov, self.gamma)
+
     ################################ PRIVATE ##################################
 
     def __assign_investment_universe(self, investment_universe):
@@ -164,20 +187,19 @@ class Investor:
                             "callable.")
 
     def __assign_gamma(self, gamma):
-        if gamma is None:
-            self.__gamma = None
-        elif type(gamma) is float or type(gamma) is int:
+        if type(gamma) is float or type(gamma) is int:
             self.__gamma = float(gamma)
         else:
-            raise TypeError("The parameter 'gamma' must be None or of type "
-                            "float or int.")
+            raise TypeError("The parameter 'gamma' must of type float or int.")
 
     def __assign_wealth(self, wealth):
-        if type(wealth) is float or type(wealth) is int:
+        if wealth is None:
+            self.__wealth = None
+        elif type(wealth) is float or type(wealth) is int:
             self.__wealth = float(wealth)
         else:
-            raise TypeError("The parameter 'wealth' must be of type float or "
-                            "int.")
+            raise TypeError("The parameter 'wealth' must be None or of type "
+                            "float or int.")
 
     def __assign_portfolio(self, portfolio):
         if portfolio is None or type(portfolio) is Portfolio:
@@ -193,6 +215,13 @@ class Investor:
             raise TypeError("The parameter 'portfolio' must be None or of "
                             "type Portfolio or list.")
 
+    def __assign_name(self, name):
+        if name is None or type(name) is str:
+            self.__name = name
+        else:
+            raise TypeError("The parameter 'name' must be None or of type "
+                            "str.")
+
     def __assign_optimization_tolerance(self, optimization_tolerance):
         if type(optimization_tolerance) is float:
             self.__optimization_tolerance = optimization_tolerance
@@ -202,13 +231,29 @@ class Investor:
 
     def __generate_output(self):
 
-        output = "wealth: {}\ngamma: {}".format(str(self.wealth),
-                                                str(self.gamma))
+        if self.name is not None:
+            output = "name: {}\n".format(self.name)
+        else:
+            output = ""
 
-        output += "\nportfolio:"
-        for portfolio_line in str(self.portfolio).splitlines():
-            output += "\n  -{}".format(portfolio_line)
+        output += "gamma: {}".format(str(self.gamma))
 
-        output += "\n  -{}: {}".format("utility", self.portfolio_utility)
+        if self.wealth is not None:
+            output += "\nwealth: {}".format(str(self.wealth))
+
+        if self.portfolio is not None:
+            output += "\nportfolio:"
+            for portfolio_line in str(self.portfolio).splitlines():
+                output += "\n  -{}".format(portfolio_line)
+
+            output += "\n  -{}: {}".format("utility", self.portfolio_utility)
+
+        if self.optimal_portfolio is not None:
+            output += "\noptimal portfolio:"
+            for portfolio_line in str(self.optimal_portfolio).splitlines():
+                output += "\n  -{}".format(portfolio_line)
+
+            output += "\n  -{}: {}".format("utility",
+                                           self.optimal_portfolio_utility)
 
         return output

@@ -2,29 +2,47 @@ import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
 
-import pyvest
+import pyvest.investment_universe.investment_universe \
+    as investment_universe_module
+import pyvest.general
 
 
 class InvestmentUniverseVisualizer:
     MAX_NB_INV_UNIV = 4
+    LINE_NB_POINTS = 100
+    FILL_BETWEEN_X_EXCESS = 0.1
 
     class VisualElement:
         def __init__(self, plot_function, priority, size,
-                     investment_universe=None, label=None, investors=None):
+                     investment_universe=None, label=None, investors=None,
+                     indifference_curves=None, nb_curves=None):
             self.__plot_function = plot_function
             self.__investment_universe = investment_universe
-            self.__size = size
             self.__priority = priority
+            self.__size = size
             self.__label = label
             self.__investors = investors
+            self.__indifference_curves = indifference_curves
+            self.__nb_curves = nb_curves
 
-            self.__zorder = 1 / priority
+            self.__zorder = 1 / self.__priority
 
         def plot(self):
             if self.__investment_universe is not None \
-                    and self.__investors is not None:
+                    and (self.__investors is not None
+                         or self.__indifference_curves is not None) \
+                    and self.__nb_curves is not None:
                 self.__plot_function(self.__investment_universe,
-                                     self.__investors, self.__label,
+                                     self.__investors,
+                                     self.__indifference_curves, self.__label,
+                                     self.__size, self.__zorder,
+                                     self.__nb_curves)
+            elif self.__investment_universe is not None \
+                    and (self.__investors is not None
+                         or self.__indifference_curves is not None):
+                self.__plot_function(self.__investment_universe,
+                                     self.__investors,
+                                     self.__indifference_curves, self.__label,
                                      self.__size, self.__zorder)
             elif self.__investment_universe is not None:
                 self.__plot_function(self.__investment_universe, self.__label,
@@ -183,11 +201,11 @@ class InvestmentUniverseVisualizer:
         self.__min_expected_return = value
 
     @property
-    def max_mu(self):
+    def max_expected_return(self):
         return self.__max_expected_return
 
-    @max_mu.setter
-    def max_mu(self, value):
+    @max_expected_return.setter
+    def max_expected_return(self, value):
         self.__max_expected_return = value
 
     @property
@@ -256,7 +274,8 @@ class InvestmentUniverseVisualizer:
     def plot(self, figsize=(16, 9), zoom_individual=False,
              min_expected_return=None, max_expected_return=None,
              min_standard_deviation=None, max_standard_deviation=None,
-             investors=None, indifference_curves=None, legend='upper left'):
+             investors=None, indifference_curves=None, optimal_portfolios=True,
+             legend='upper left'):
 
         self.__calculate_visible_portfolios_mu_std(zoom_individual, investors)
         self.__set_default_std_limits()
@@ -284,7 +303,8 @@ class InvestmentUniverseVisualizer:
         self.__ax.set_xlabel("Standard deviation", fontsize=30)
         self.__ax.tick_params(axis='both', labelsize=25)
 
-        self.__generate_visual_elements_list(investors, indifference_curves)
+        self.__generate_visual_elements_list(investors, indifference_curves,
+                                             optimal_portfolios)
 
         sorted_visual_elements = sorted(self.__visual_elements_list,
                                         reverse=True)
@@ -342,9 +362,13 @@ class InvestmentUniverseVisualizer:
                 other_portfolios = [ptf_name_pair[0] for ptf_name_pair
                                     in list(inv_uni.other_portfolios.values())]
                 remaining_ptfs_list.extend(other_portfolios)
-            if investors is not None:
+            if inv_uni.investors is not None:
+                if investors is None:
+                    investors = list(inv_uni.investors.keys())
                 investor_portfolios = [inv_uni.investors[x].portfolio
-                                       for x in investors]
+                                       for x in investors
+                                       if inv_uni.investors[x].portfolio
+                                       is not None]
                 remaining_ptfs_list.extend(investor_portfolios)
 
             if not zoom_individual \
@@ -359,7 +383,8 @@ class InvestmentUniverseVisualizer:
              in remaining_ptfs_list])
 
     def __assign_investment_universes(self, investment_universes):
-        if isinstance(investment_universes, pyvest.InvestmentUniverse):
+        if isinstance(investment_universes,
+                      investment_universe_module.InvestmentUniverse):
             self.__investment_universes = [investment_universes]
         else:
             self.__investment_universes = investment_universes
@@ -385,7 +410,8 @@ class InvestmentUniverseVisualizer:
                 asset_index += 1
             inv_univ_index += 1
 
-    def __plot_feasible_portfolios(self, investment_universe, label, size, zorder):
+    def __plot_feasible_portfolios(self, investment_universe, label, size,
+                                   zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible"]
 
@@ -428,38 +454,13 @@ class InvestmentUniverseVisualizer:
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible"]
 
-        # feasible_portfolios_std_list = []
-        # feasible_portfolios_mu_list = []
-        # for ptf_pair in investment_universe.feasible_portfolios_surface:
-        #
-        #     mu = ptf_pair[0].expected_return
-        #     sigma_min = ptf_pair[0].standard_deviation
-        #     sigma_max = ptf_pair[1].standard_deviation
-        #
-        #     feasible_portfolios_std_list.append(sigma_min)
-        #     feasible_portfolios_mu_list.append(mu)
-        #
-        #     feasible_portfolios_std_list.append(sigma_max)
-        #     feasible_portfolios_mu_list.append(mu)
-        #
-        #     for sigma in np.arange(sigma_min, sigma_max + 0.01, 0.01):
-        #         feasible_portfolios_std_list.append(sigma)
-        #         feasible_portfolios_mu_list.append(mu)
-
         mu_sigma_tuples_list = []
         for ptf_pair in investment_universe.feasible_portfolios_surface:
-
             mu = ptf_pair[0].expected_return
             sigma_min = ptf_pair[0].standard_deviation
             sigma_max = ptf_pair[1].standard_deviation
 
             mu_sigma_tuples_list.append((mu, sigma_min, sigma_max))
-
-            # feasible_portfolios_mu_list.append(mu)
-            # feasible_portfolios_std_min_list.append(sigma_min)
-            # feasible_portfolios_std_max_list.append(sigma_max)
-
-            # print(mu, sigma_min, sigma_max)
 
         mu_sigma_tuples_list = sorted(mu_sigma_tuples_list, key=lambda x: x[0])
         mu_sigma_min_max_list = list(zip(*mu_sigma_tuples_list))
@@ -468,12 +469,7 @@ class InvestmentUniverseVisualizer:
         feasible_portfolios_std_max_list = mu_sigma_min_max_list[2]
 
         legend_label = self.__complete_label("Feasible portfolios", label)
-        # self.__ax.scatter(feasible_portfolios_std_list,
-        #                   feasible_portfolios_mu_list,
-        #                   s=size,
-        #                   alpha=self.__alpha,
-        #                   label=legend_label,
-        #                   color=color, zorder=zorder)
+
         self.__ax.fill_betweenx(feasible_portfolios_mu_list,
                                 feasible_portfolios_std_min_list,
                                 feasible_portfolios_std_max_list,
@@ -503,6 +499,7 @@ class InvestmentUniverseVisualizer:
 
         legend_label = self.__complete_label("Feasible portfolios with r_f",
                                              label)
+
         self.__ax.fill_betweenx(feasible_portfolios_mu_list,
                                 feasible_portfolios_std_min_list,
                                 feasible_portfolios_std_max_list,
@@ -515,41 +512,65 @@ class InvestmentUniverseVisualizer:
                                             size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible"]
-
-        nb_points = 100
-        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
-
-        exp_ret_list = list(np.arange(self.__min_expected_return, self.__max_expected_return, step))
-        std_list = [investment_universe.feasible_portfolios_equation(mu)
-                    for mu in exp_ret_list]
-
         legend_label = self.__complete_label("Feasible portfolios", label)
-        self.__ax.fill_betweenx(exp_ret_list, std_list, self.__max_standard_deviation,
-                                linewidth=size,
-                                alpha=self.__alpha,
-                                label=legend_label,
-                                color=color, zorder=zorder)
+
+        if len(investment_universe.assets) > 1:
+            nb_points = self.LINE_NB_POINTS
+            step = (self.__max_expected_return
+                    - self.__min_expected_return) / nb_points
+            exp_ret_list = list(
+                np.arange(self.__min_expected_return,
+                          self.__max_expected_return,
+                          step))
+            std_list = [investment_universe.feasible_portfolios_equation(mu)
+                        for mu in exp_ret_list]
+        else:
+            exp_ret_list = [investment_universe.mu[0]]
+            std_list = [investment_universe.std[0]]
+
+        if len(investment_universe.assets) < 3:
+            self.__ax.plot(std_list, exp_ret_list, linewidth=size,
+                           alpha=self.__alpha, label=legend_label, color=color,
+                           zorder=zorder)
+        else:
+            max_std = (1 + self.FILL_BETWEEN_X_EXCESS) \
+                      * self.__max_standard_deviation
+            self.__ax.fill_betweenx(
+                exp_ret_list, std_list,
+                max_std * self.__max_standard_deviation,
+                linewidth=size, alpha=self.__alpha, label=legend_label,
+                color=color, zorder=zorder)
 
     def __plot_feasible_portfolios_equation_with_r_f(self, investment_universe,
                                                      label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["feasible_with_r_f"]
 
-        nb_points = 100
-        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
+        nb_points = self.LINE_NB_POINTS
+        step = (
+                       self.__max_expected_return - self.__min_expected_return) / nb_points
 
-        exp_ret_list = list(np.arange(self.__min_expected_return, self.__max_expected_return, step))
+        exp_ret_list = list(
+            np.arange(self.__min_expected_return, self.__max_expected_return,
+                      step))
         std_list = [
             investment_universe.feasible_portfolios_equation_with_r_f(mu)
             for mu in exp_ret_list]
 
         legend_label = self.__complete_label("Feasible portfolios with r_f",
                                              label)
-        self.__ax.fill_betweenx(exp_ret_list, std_list, self.__max_standard_deviation,
-                                linewidth=size,
-                                alpha=self.__alpha,
-                                label=legend_label,
-                                color=color, zorder=zorder)
+        if len(investment_universe.assets) < 2:
+            self.__ax.plot(std_list, exp_ret_list, linewidth=size,
+                           alpha=self.__alpha, label=legend_label, color=color,
+                           zorder=zorder)
+        else:
+            max_std = (1 + self.FILL_BETWEEN_X_EXCESS) \
+                      * self.__max_standard_deviation
+            self.__ax.fill_betweenx(exp_ret_list, std_list, max_std,
+                                    linewidth=size,
+                                    alpha=self.__alpha,
+                                    label=legend_label,
+                                    color=color, zorder=zorder)
 
     def __plot_efficient_frontier(self, investment_universe, label, size,
                                   zorder):
@@ -568,10 +589,6 @@ class InvestmentUniverseVisualizer:
                        linewidth=size, alpha=self.__alpha, label=legend_label,
                        color=color, zorder=zorder)
 
-        # self.__ax.scatter(efficient_portfolios_std_list,
-        #                   efficient_portfolios_mu_list, color=color, s=size,
-        #                   label=legend_label, zorder=zorder)
-
     def __plot_efficient_frontier_equation(self, investment_universe, label,
                                            size, zorder):
         color_label = label if label is not None else "1"
@@ -582,10 +599,11 @@ class InvestmentUniverseVisualizer:
         mvp_mu_sigma = investment_universe.efficient_frontier_equation["mvp"]
         mvp_mu = mvp_mu_sigma[0]
 
-        nb_points = 100
+        nb_points = self.LINE_NB_POINTS
         step = (self.__max_expected_return - mvp_mu) / nb_points
 
-        exp_ret_list = list(np.arange(mvp_mu, self.__max_expected_return, step))
+        exp_ret_list = list(
+            np.arange(mvp_mu, self.__max_expected_return, step))
         std_list = [efficient_frontier_equation(mu) for mu in exp_ret_list]
 
         legend_label = self.__complete_label("Efficient frontier", label)
@@ -605,19 +623,18 @@ class InvestmentUniverseVisualizer:
         self.__ax.plot(cal_portfolios_std_list, cal_portfolios_mu_list,
                        linewidth=size, alpha=self.__alpha, label=legend_label,
                        color=color, zorder=zorder)
-        # self.__ax.scatter(cal_portfolios_std_list, cal_portfolios_mu_list,
-        #                   s=size, label=legend_label, color=color,
-        #                   zorder=zorder)
 
     def __plot_cal_equation(self, investment_universe, label, size, zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["cal"]
 
-        nb_points = 100
-        step = (self.__max_expected_return - self.__min_expected_return) / nb_points
+        nb_points = self.LINE_NB_POINTS
+        step = (
+                       self.__max_expected_return - self.__min_expected_return) / nb_points
 
-        exp_ret_list = list(np.arange(investment_universe.r_f, self.__max_expected_return,
-                                      step))
+        exp_ret_list = list(
+            np.arange(investment_universe.r_f, self.__max_expected_return,
+                      step))
         std_list = [investment_universe.cal_equation(mu)
                     for mu in exp_ret_list]
 
@@ -679,7 +696,8 @@ class InvestmentUniverseVisualizer:
         self.__ax.scatter(0, investment_universe.r_f, s=size,
                           label=legend_label, color=color, zorder=zorder)
 
-    def __plot_tangency_portfolio(self, investment_universe, label, size, zorder):
+    def __plot_tangency_portfolio(self, investment_universe, label, size,
+                                  zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["tangency"]
 
@@ -695,7 +713,8 @@ class InvestmentUniverseVisualizer:
             investment_universe.tangency_portfolio.expected_return, s=size,
             label=legend_label, color=color, zorder=zorder)
 
-    def __plot_other_portfolios(self, investment_universe, label, size, zorder):
+    def __plot_other_portfolios(self, investment_universe, label, size,
+                                zorder):
         color_label = label if label is not None else "1"
         color_iter = iter(self.__colors[color_label]["others"])
 
@@ -722,7 +741,8 @@ class InvestmentUniverseVisualizer:
                               portfolio.expected_return, s=size,
                               label=legend_label, color=color, zorder=zorder)
 
-    def __plot_market_portfolio(self, investment_universe, label, size, zorder):
+    def __plot_market_portfolio(self, investment_universe, label, size,
+                                zorder):
         color_label = label if label is not None else "1"
         color = self.__colors[color_label]["market"]
 
@@ -738,10 +758,10 @@ class InvestmentUniverseVisualizer:
             investment_universe.market_portfolio.expected_return, s=size,
             label=legend_label, color=color, zorder=zorder)
 
-    def __plot_investors_portfolio(self, investment_universe, investor_names,
-                                   label, size, zorder):
+    def __plot_investors_portfolio(self, investment_universe, investors,
+                                   indifference_curves, label, size, zorder):
 
-        for investor_name in investor_names:
+        for investor_name in investors:
             if investor_name in investment_universe.investors:
                 investor = investment_universe.investors[investor_name]
                 weights = str(
@@ -760,32 +780,65 @@ class InvestmentUniverseVisualizer:
                     investor.portfolio.expected_return,
                     s=size, label=legend_label, color=color, zorder=zorder)
 
-    def __plot_indifference_curves(self, investment_universe, investor_names,
-                                   label, size, zorder):
+    def __plot_indifference_curves(self, investment_universe, investors,
+                                   indifference_curves, label, size, zorder,
+                                   default_nb_curves):
 
-        for investor_name in investor_names:
+        # Determine the number of indifference curves
+        if indifference_curves is True:
+            nb_curves = default_nb_curves
+        elif type(indifference_curves) is int:
+            nb_curves = indifference_curves
+        else:
+            nb_curves = None
+
+        # If indifference_curves is not a list, then there is only one
+        # indifference curve
+        if type(indifference_curves) is not list:
+            indifference_curves = [indifference_curves]
+
+        if investors is None:
+            investors = investment_universe.investors
+
+        for investor_name in investors:
             if investor_name in investment_universe.investors:
                 investor = investment_universe.investors[investor_name]
-                portfolio_utility = investor.portfolio_utility
 
-                utility_list = self.get_utility_list(portfolio_utility)
+                if nb_curves is not None:
+                    start_utility = (self.max_expected_return
+                                     - self.min_expected_return) / 2
+                    utility_list = self.__get_default_utility_list(
+                        start_utility, nb_curves)
+                else:
+                    utility_list = self.__get_indifference_curves_utility_list(
+                        indifference_curves, investment_universe, investor)
 
                 color = self.__get_investor_color(investor_name, label)
+                legend_label = self.__complete_label(investor_name, label)
+                utility_curve_nb = 1
                 for utility in utility_list:
                     std_array, mu_array = \
                         investor.calculate_indifference_curve(
                             utility, min_std=self.__min_standard_deviation,
                             max_std=self.__max_standard_deviation)
-                    self.__ax.plot(std_array, mu_array, linewidth=size,
-                                   alpha=self.__alpha, color=color,
-                                   zorder=zorder)
 
-    def get_utility_list(self, portfolio_utility):
-        nb_curves = 5
+                    if utility_curve_nb == 1:
+                        self.__ax.plot(std_array, mu_array, linewidth=size,
+                                       alpha=self.__alpha, color=color,
+                                       zorder=zorder, label=legend_label)
+                    else:
+                        self.__ax.plot(std_array, mu_array, linewidth=size,
+                                       alpha=self.__alpha, color=color,
+                                       zorder=zorder)
+                    utility_curve_nb += 1
 
-        min_utility = 2 * self.__min_expected_return - self.__max_expected_return
+    def __get_default_utility_list(self, portfolio_utility, nb_curves):
+
+        min_utility = 2 * self.__min_expected_return \
+                      - self.__max_expected_return
         max_utility = self.__max_expected_return
-        utility_step = (self.__max_expected_return - self.__min_expected_return) / nb_curves
+        utility_step = (self.__max_expected_return
+                        - self.__min_expected_return) / nb_curves
 
         utility_list = []
 
@@ -800,6 +853,97 @@ class InvestmentUniverseVisualizer:
             utility_list.append(utility)
 
         return utility_list
+
+    def __get_indifference_curves_utility_list(self, indifference_curves,
+                                               investment_universe, investor):
+
+        utility_list = []
+
+        for ind_curve in indifference_curves:
+            utility = None
+            if type(ind_curve) is float or type(ind_curve) is int:
+                utility = ind_curve
+            elif type(ind_curve) is list:
+                ind_curve_ptf = pyvest.general.Portfolio(
+                    ind_curve, investment_universe.mu,
+                    investment_universe.cov,
+                    r_f=investment_universe.r_f,
+                    assets=investment_universe.assets)
+                utility = investor.calculate_portfolio_utility(ind_curve_ptf)
+            elif type(ind_curve) is str:
+                ind_curve_ptf = self.__get_portfolio_from_string(
+                    ind_curve, investment_universe, investor)
+                if ind_curve_ptf is not None:
+                    utility = investor.calculate_portfolio_utility(
+                        ind_curve_ptf)
+
+            if utility is not None:
+                utility_list.append(utility)
+
+        return utility_list
+
+    def __get_portfolio_from_string(self, ptf_string, investment_universe,
+                                    investor):
+
+        if ptf_string in investment_universe.assets:
+            asset_index = investment_universe.assets.index(ptf_string)
+            ptf_weights = np.zeros(len(investment_universe.assets))
+            ptf_weights[asset_index] = 1
+            ptf = pyvest.general.Portfolio(
+                ptf_weights, investment_universe.mu,
+                investment_universe.cov,
+                r_f=investment_universe.r_f,
+                assets=investment_universe.assets)
+        elif ptf_string == "mvp" and investment_universe.mvp is not None:
+            ptf = investment_universe.mvp
+        elif ptf_string == "tangency" \
+                and investment_universe.tangency_portfolio is not None:
+            ptf = investment_universe.tangency_portfolio
+        elif ptf_string == "optimal" \
+                and investor.optimal_portfolio is not None:
+            ptf = investor.optimal_portfolio
+        elif ptf_string == investor.name \
+                and investor.optimal_portfolio is not None:
+            ptf = investor.optimal_portfolio
+        else:
+            ptf = investment_universe.get_portfolio_by_name(ptf_string)
+
+        return ptf
+
+    def __plot_optimal_portfolios(self, investment_universe, investors,
+                                  optimal_portfolios, label, size, zorder):
+
+        if investors is None:
+            investors = investment_universe.investors
+
+        if optimal_portfolios is True:
+            optimal_ptf_investors = investors
+        elif optimal_portfolios is False:
+            optimal_ptf_investors = []
+        else:
+            optimal_portfolios = [optimal_portfolios] \
+                if type(optimal_portfolios) is not list else optimal_portfolios
+            optimal_ptf_investors = list(set(investors).intersection(
+                set(optimal_portfolios)))
+
+        for investor_name in optimal_ptf_investors:
+            if investor_name in investment_universe.investors:
+                investor = investment_universe.investors[investor_name]
+                if investor.optimal_portfolio is not None:
+                    weights = str(
+                        [("{:." + str(self.__nb_decimal_places) + "f}").format(
+                            round(weight, self.__nb_decimal_places)) for weight
+                            in investor.optimal_portfolio.weights]).replace(
+                        "'", "")
+
+                    opt_label_str = "Optimal - " + investor_name + " - " + weights
+                    legend_label = self.__complete_label(opt_label_str, label)
+
+                    color = self.__get_investor_color(investor_name, label)
+                    self.__ax.scatter(
+                        investor.optimal_portfolio.standard_deviation,
+                        investor.optimal_portfolio.expected_return,
+                        s=size, label=legend_label, color=color, zorder=zorder)
 
     def __check_bool(self, value, variable_name):
         if type(value) is not bool:
@@ -913,11 +1057,11 @@ class InvestmentUniverseVisualizer:
                     "size": 200
                 },
                 "investors": {
-                    "priority": 15 - inv_univ_index,
+                    "priority": 10 - inv_univ_index,
                     "size": 200
                 },
                 "others": {
-                    "priority": 20 - inv_univ_index,
+                    "priority": 15 - inv_univ_index,
                     "size": 200
                 },
                 "market_portfolio": {
@@ -934,11 +1078,11 @@ class InvestmentUniverseVisualizer:
                 },
                 "cal": {
                     "priority": 60 - inv_univ_index,
-                    "size": 6
+                    "size": 7
                 },
                 "efficient_portfolios": {
                     "priority": 70 - inv_univ_index,
-                    "size": 6
+                    "size": 7
                 },
                 "feasible_portfolios": {
                     "priority": 80 - inv_univ_index,
@@ -949,19 +1093,20 @@ class InvestmentUniverseVisualizer:
                     "size": 0
                 },
                 "indifference_curves": {
-                    "priority": 100 - inv_univ_index,
-                    "size": 20
+                    "priority": 20 - inv_univ_index,
+                    "size": 2,
+                    "nb_curves": 7
+                },
+                "optimal_portfolios": {
+                    "priority": 15 - inv_univ_index,
+                    "size": 200
                 }
             }
             self.__visual_elements_properties[
                 inv_univ_index] = vis_elem_properties
 
-    def __generate_visual_elements_list(self, investors, indifference_curves):
-
-        if indifference_curves is True:
-            indifference_curves = investors
-        elif indifference_curves is False:
-            indifference_curves = []
+    def __generate_visual_elements_list(self, investors, indifference_curves,
+                                        optimal_portfolios):
 
         self.__visual_elements_list = []
 
@@ -1096,21 +1241,25 @@ class InvestmentUniverseVisualizer:
                                            "priority"],
                                        properties["market_portfolio"][
                                            "size"], inv_univ, label))
-            if investors is not None:
-                self.__visual_elements_list.append(
-                    self.VisualElement(
-                        self.__plot_investors_portfolio,
-                        properties["investors"]["priority"],
-                        properties["investors"]["size"],
-                        inv_univ, label, investors))
 
-            if indifference_curves is not None:
+            if indifference_curves is not None \
+                    and indifference_curves is not False:
                 self.__visual_elements_list.append(
                     self.VisualElement(
                         self.__plot_indifference_curves,
                         properties["indifference_curves"]["priority"],
                         properties["indifference_curves"]["size"],
-                        inv_univ, label, indifference_curves))
+                        inv_univ, label, investors, indifference_curves,
+                        properties["indifference_curves"]["nb_curves"]))
+
+            if optimal_portfolios is not None \
+                    and optimal_portfolios is not False:
+                self.__visual_elements_list.append(
+                    self.VisualElement(
+                        self.__plot_optimal_portfolios,
+                        properties["optimal_portfolios"]["priority"],
+                        properties["optimal_portfolios"]["size"],
+                        inv_univ, label, investors, optimal_portfolios))
 
             inv_univ_index += 1
 

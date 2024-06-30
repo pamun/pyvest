@@ -1,6 +1,5 @@
 import math
 import itertools
-import time
 
 import numpy as np
 
@@ -131,7 +130,6 @@ class FeasiblePortfoliosGeneratorFrontier(FeasiblePortfoliosGenerator):
         return self.__frontier
 
     def generate_portfolios(self, nb_portfolios=None, distance=None):
-        time1 = time.time()
 
         self.__portfolios_list = []
         self.__frontier = []
@@ -143,10 +141,6 @@ class FeasiblePortfoliosGeneratorFrontier(FeasiblePortfoliosGenerator):
 
         self.__calculate_max_portfolios()
         self.__filter_max_portfolios()
-
-        time2 = time.time()
-
-        delta1 = time2 - time1
 
         self.__portfolios_list = []
         for ptf_max in self.__filtered_max_portfolios_list:
@@ -160,13 +154,6 @@ class FeasiblePortfoliosGeneratorFrontier(FeasiblePortfoliosGenerator):
                 self.__portfolios_list.append(ptf_min)
                 self.__portfolios_list.append(ptf_max)
                 self.__frontier.append((ptf_min, ptf_max))
-
-        time3 = time.time()
-
-        delta2 = time3 - time1
-
-        print("delta1={}".format(delta1))
-        print("delta2={}".format(delta2))
 
         return self.__portfolios_list
 
