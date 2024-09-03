@@ -426,15 +426,20 @@ class RebalanceTransaction(Transaction):
 
         self.__realized_capital_gain_by_ticker = {}
         for ticker, diff_value in self.__difference_value_by_ticker.items():
+            quantity = self.__difference_quantity_by_ticker[ticker]
+            asset_price = self.asset_price[ticker]
             if diff_value > 0:
                 # Buy
                 self.__realized_capital_gain_by_ticker[ticker] = \
                     investment_state.profit.realized_capital_gain_by_ticker[ticker]
             else:
                 # Sell
+                add_realized_capital_gain = - quantity * (
+                        asset_price
+                        - investment_state.average_cost_by_ticker[ticker])
                 self.__realized_capital_gain_by_ticker[ticker] = \
-                    investment_state.profit.realized_capital_gain_by_ticker[ticker] \
-                    - diff_value
+                    investment_state.profit.realized_capital_gain_by_ticker[
+                        ticker] + add_realized_capital_gain
 
     def __calculate_cost_by_ticker(self, investment_state):
         self.__total_cost_by_ticker = {}
@@ -448,7 +453,7 @@ class RebalanceTransaction(Transaction):
                 # Sell
                 self.__total_cost_by_ticker[ticker] = \
                     investment_state.total_cost_by_ticker[ticker] \
-                    - self.__difference_quantity_by_ticker[ticker] \
+                    + self.__difference_quantity_by_ticker[ticker] \
                     * investment_state.average_cost_by_ticker[ticker]
 
             self.__average_cost_by_ticker[ticker] = \
