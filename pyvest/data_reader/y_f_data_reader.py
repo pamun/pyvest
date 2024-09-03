@@ -1,10 +1,11 @@
 from pyvest.data_reader import ReturnsDataReader
+from pyvest.data_reader.history_data_reader import HistoryDataReader
 
 import pandas as pd
 import yfinance as yf
 
 
-class YFDataReader(ReturnsDataReader):
+class YFDataReader(ReturnsDataReader, HistoryDataReader):
     def __init__(self):
         super().__init__()
 
@@ -19,6 +20,14 @@ class YFDataReader(ReturnsDataReader):
                 ticker, start_date, end_date, freq)
 
         return monthly_returns_df
+
+    def read_history(self, ticker, start_date, end_date, interval='1d'):
+
+        history_df = yf.Ticker(ticker).history(start=start_date, end=end_date,
+                                               interval=interval,
+                                               auto_adjust=False)
+
+        return history_df
 
     def __read_ticker_returns(self, ticker, start_date, end_date, freq):
         history_df = yf.Ticker(ticker).history(start=start_date, end=end_date,
