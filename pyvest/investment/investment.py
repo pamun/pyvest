@@ -1,34 +1,32 @@
 import pandas as pd
+import datetime
 
 import pyvest.investment as investment_module
-from pyvest import YFDataReader
 from pyvest.investment.transaction import BuyTransaction, SellTransaction, \
     DividendTransaction, ReinvestedDividendTransaction, RebalanceTransaction
 
 
 class Investment:
     def __init__(self, tickers, cash, weights=None, start_date=None,
-                 end_date=None, interval="1d", dividend_commission=0,
+                 end_date=None, frequency="1d", dividend_commission=0,
                  rebalance_commission=0, reinvest_dividends=True,
-                 rebalance=False, from_historical_data=False,
+                 rebalance=False, from_historical_data=True,
                  data_reader=None):
 
         self.__tickers = [tickers] if isinstance(tickers, str) else tickers
 
         self.__cash = cash
+        self.__frequency = frequency
         self.__start_date = self.__preprocess_date(start_date)
         self.__end_date = self.__preprocess_date(end_date)
-        self.__interval = interval
         self.__assets = {}
+        self.__asset_types = {}
 
         self.__weights = weights
         self.__reinvest_dividends = reinvest_dividends
         self.__rebalance = rebalance
 
-        if data_reader is None:
-            self.__data_reader = YFDataReader()
-        else:
-            self.__data_reader = data_reader
+        self.__data_reader = data_reader
 
         self.__unprocessed_transactions = {}
         self.__initialize_state_history()
@@ -44,9 +42,10 @@ class Investment:
             if weights is not None and rebalance:
                 self.__create_rebalance_transactions(rebalance_commission)
         else:
-            self.__assets = tickers
+            raise ValueError("from_historical_data must be True and "
+                             "start_date and end_date must be provided.")
 
-
+        self.__visualizer = None
 
     def __repr__(self):
         return self.__generate_output()
@@ -77,6 +76,18 @@ class Investment:
     @property
     def reinvest_dividends(self):
         return self.__reinvest_dividends
+
+    @property
+    def start_date(self):
+        return self.__start_date
+
+    @property
+    def end_date(self):
+        return self.__end_date
+
+    @property
+    def visualizer(self):
+        return self.__visualizer
 
     def get_most_recent_state(self, date):
 
@@ -302,6 +313,113 @@ class Investment:
 
         return state
 
+    def calculate_weight(self, date):
+
+        processed_date = pd.to_datetime(date).tz_localize(None)
+
+        state = self.get_state(date)
+
+        weight_by_ticker = state.weight_by_ticker
+
+        dated_weight_by_ticker = {}
+        for ticker, weight in weight_by_ticker.items():
+            dated_weight = \
+                investment_module.investment_dated_info.InvestmentDatedInfo(
+                    processed_date, ticker=ticker,  weight=weight)
+            dated_weight_by_ticker[ticker] = dated_weight
+
+        return dated_weight_by_ticker
+
+    def calculate_weight_range(self, start_date=None, end_date=None):
+
+        if start_date is None:
+            start_date = self.__start_date
+
+        if end_date is None:
+            end_date = self.__end_date
+
+        processed_start_date = pd.to_datetime(start_date).tz_localize(None)
+        processed_end_date = pd.to_datetime(end_date).tz_localize(None)
+
+        dated_weights_list = []
+        for date in self.__history_dates:
+            processed_date = pd.to_datetime(date).tz_localize(None)
+            if processed_start_date <= processed_date <= processed_end_date:
+                dated_weight_by_ticker = self.calculate_weight(processed_date)
+                dated_weights_list.append(dated_weight_by_ticker)
+
+        return dated_weights_list
+
+    def calculate_value(self, date):
+
+        processed_date = pd.to_datetime(date).tz_localize(None)
+
+        state = self.get_state(date)
+
+        value_by_ticker = state.value_by_ticker
+
+        dated_value_by_ticker = {}
+        for ticker, value in value_by_ticker.items():
+            dated_value = \
+                investment_module.investment_dated_info.InvestmentDatedInfo(
+                    processed_date, ticker=ticker,  value=value)
+            dated_value_by_ticker[ticker] = dated_value
+
+        return dated_value_by_ticker
+
+    def calculate_value_range(self, start_date=None, end_date=None):
+
+        if start_date is None:
+            start_date = self.__start_date
+
+        if end_date is None:
+            end_date = self.__end_date
+
+        processed_start_date = pd.to_datetime(start_date).tz_localize(None)
+        processed_end_date = pd.to_datetime(end_date).tz_localize(None)
+
+        dated_values_list = []
+        for date in self.__history_dates:
+            processed_date = pd.to_datetime(date).tz_localize(None)
+            if processed_start_date <= processed_date <= processed_end_date:
+                dated_value_by_ticker = self.calculate_value(processed_date)
+                dated_values_list.append(dated_value_by_ticker)
+
+        return dated_values_list
+
+    ############################## PLOT METHODS ###############################
+
+    def plot_profit(self, compare_with=None,
+                    start_date=None, end_date=None, figsize=(16, 9),
+                    legend='best', show_transactions=False):
+
+        self.__prepare_visualizer(compare_with)
+        self.__visualizer.plot_profit(start_date, end_date, figsize, legend,
+                                      show_transactions)
+
+    def plot_return(self, compare_with=None,
+                    start_date=None, end_date=None, figsize=(16, 9),
+                    legend='best', show_transactions=False):
+        self.__prepare_visualizer(compare_with)
+        self.__visualizer.plot_return(start_date, end_date, figsize, legend,
+                                      show_transactions)
+
+    def plot_weight(self, compare_with=None,
+                    start_date=None, end_date=None, figsize=(16, 9),
+                    legend='best', show_transactions=False):
+        self.__prepare_visualizer(compare_with)
+        self.__visualizer.plot_weight(start_date, end_date, figsize, legend,
+                                      show_transactions)
+
+    def plot_value(self, compare_with=None,
+                   start_date=None, end_date=None, figsize=(16, 9),
+                   legend='best', show_transactions=False):
+        self.__prepare_visualizer(compare_with)
+        self.__visualizer.plot_value(start_date, end_date, figsize, legend,
+                                      show_transactions)
+
+    ################################ PRIVATE ##################################
+
     def __initialize_state_history(self):
         self.__transactions_history = {}
         self.__current_state = investment_module.InvestmentState(
@@ -310,9 +428,25 @@ class Investment:
 
     def __preprocess_date(self, date):
 
-        date = pd.to_datetime(date).tz_localize(None)
+        if isinstance(date, str):
+            full_date = self.__preprocess_string_date(date)
+        else:
+            full_date = date
 
-        return date
+        preprocessed_date = pd.to_datetime(full_date).tz_localize(None)
+
+        return preprocessed_date
+
+    def __preprocess_string_date(self, date_str):
+
+        full_date_str = date_str
+        if self.__frequency == "1mo":
+            if len(date_str) == 7 and date_str[4] == "-":
+                full_date_str = date_str + "-01"
+            else:
+                raise ValueError("Monthly dates must be in the format YYYY-MM")
+
+        return full_date_str
 
     def __process_transaction(self, date, transaction):
 
@@ -327,21 +461,35 @@ class Investment:
         return sorted(list(dates_map.keys()))
 
     def __create_assets_from_historical_data(self):
+
         for ticker in self.__tickers:
-            asset = investment_module.Stock(ticker,
-                                            start_date=self.__start_date,
-                                            end_date=self.__end_date,
-                                            interval=self.__interval,
-                                            data_reader=self.__data_reader)
+            if self.__is_portfolio(ticker):
+                # Portfolio (FF)
+                asset = investment_module.StockPortfolio(
+                    ticker, start_date=self.__start_date,
+                    end_date=self.__end_date, frequency=self.__frequency,
+                    data_reader=self.__data_reader)
+                asset_type = "portfolio"
+            else:
+                # Stock (yfinance)
+                asset = investment_module.Stock(ticker,
+                                                start_date=self.__start_date,
+                                                end_date=self.__end_date,
+                                                frequency=self.__frequency,
+                                                data_reader=self.__data_reader)
+                asset_type = "stock"
+
             self.__assets[ticker] = asset
+            self.__asset_types[ticker] = asset_type
 
     def __create_dividend_transactions(self, commission, reinvest_dividends):
         for ticker, asset in self.__assets.items():
-            for date, dividend_amount in asset.dividends.items():
-                self.add_dividend(ticker, date.tz_localize(None),
-                                  dividend_amount,
-                                  commission=commission,
-                                  reinvest_dividends=reinvest_dividends)
+            if self.__asset_types[ticker] == "stock":
+                for date, dividend_amount in asset.dividends.items():
+                    self.add_dividend(ticker, date.tz_localize(None),
+                                      dividend_amount,
+                                      commission=commission,
+                                      reinvest_dividends=reinvest_dividends)
 
     def __create_rebalance_transactions(self, commission):
         end_of_month_dates = self.__get_end_of_month_dates()
@@ -360,10 +508,21 @@ class Investment:
             previous_date = date
             previous_date_month = current_date_month
 
+        last_date = previous_date
+        last_date_month = previous_date_month
+
+        if self.__frequency == "1d":
+            day_after_last_date = last_date + datetime.timedelta(days=1)
+            day_after_last_date_month = day_after_last_date.month
+            if day_after_last_date_month != last_date_month:
+                end_of_month_dates.append(last_date)
+        elif self.__frequency == "1mo" or self.__frequency == "3mo":
+            end_of_month_dates.append(last_date)
+
         return end_of_month_dates
 
     def __get_asset_price(self, ticker, date, column="Close"):
-        asset_price = self.__assets[ticker].history.loc[date][column]
+        asset_price = self.__assets[ticker].get_price(date)
 
         return asset_price
 
@@ -395,14 +554,12 @@ class Investment:
 
     def __initialize_dates(self):
         self.__start_date = self.__preprocess_date(
-            self.__assets[self.__tickers[0]].history.index[0])
+            self.__assets[self.__tickers[0]].start_date)
         self.__end_date = self.__preprocess_date(
-            self.__assets[self.__tickers[0]].history.index[-1])
-        self.__history_dates = self.__assets[self.__tickers[0]].history.index
+            self.__assets[self.__tickers[0]].end_date)
+        self.__history_dates = self.__assets[self.__tickers[0]].dates
 
     def __calculate_return_on_date(self, date, percentage=True):
-
-        # state = self.get_most_recent_state(date)
 
         profit = self.calculate_profit(date)
 
@@ -415,8 +572,9 @@ class Investment:
         if percentage:
             total_return_value *= 100
 
-        total_return = investment_module.investment_return.InvestmentReturn(
-            profit.date, total_return_value)
+        total_return = \
+            investment_module.investment_dated_info.InvestmentDatedInfo(
+            profit.date, total_return=total_return_value)
 
         return total_return
 
@@ -424,3 +582,31 @@ class Investment:
         output = str(self.__current_state)
 
         return output
+
+    def __is_portfolio(self, ticker):
+
+        is_portfolio = False
+
+        factor_tickers = ["Mkt-RF", "SMB", "HML", "RF", "Mkt"]
+        portfolio_tickers = ["beta_" + str(i) for i in range(1, 11)] + \
+                            ["size_" + str(i) for i in range(1, 11)] + \
+                            ["value_" + str(i) for i in range(1, 11)] + \
+                            ["momentum_" + str(i) for i in range(1, 11)]
+
+        if ticker in factor_tickers or ticker in portfolio_tickers:
+            is_portfolio = True
+
+        return is_portfolio
+
+    def __prepare_visualizer(self, compare_with):
+        investment = [self]
+        if isinstance(compare_with, Investment):
+            investment.append(compare_with)
+        elif isinstance(compare_with, list):
+            investment.extend(compare_with)
+
+        if self.__visualizer is None:
+            self.__visualizer = \
+                investment_module.InvestmentVisualizer(investment)
+        else:
+            self.__visualizer.investments = investment

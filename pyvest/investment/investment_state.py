@@ -1,3 +1,5 @@
+import numpy as np
+
 from pyvest.investment import Profit
 
 
@@ -187,7 +189,8 @@ class InvestmentState:
         total_value = sum(value_by_ticker.values())
         for ticker, quantity in self.__quantity_by_ticker.items():
             value = quantity * self.__asset_price_by_ticker[ticker]
-            weight_by_ticker[ticker] = value / total_value
+            weight_by_ticker[ticker] = value / total_value if total_value > 0 \
+                else np.NaN
 
         return weight_by_ticker
 
@@ -197,6 +200,10 @@ class InvestmentState:
             output += ticker + "\n" \
                       + "  Quantity: " \
                       + str(self.__quantity_by_ticker[ticker]) + "\n" \
+                      + "  Value: " \
+                      + str(self.value_by_ticker[ticker]) + "\n" \
+                      + "  Weight: " \
+                      + str(self.weight_by_ticker[ticker]) + "\n" \
                       + "  Total Cost: " \
                       + str(self.__total_cost_by_ticker[ticker]) + "\n" \
                       + "  Average Cost: " \
