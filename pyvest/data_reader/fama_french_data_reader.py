@@ -4,6 +4,10 @@ from pyvest.data_reader.factors_data_reader import FactorsDataReader
 import pandas_datareader.data as web
 from pandas_datareader.famafrench import get_available_datasets
 
+# TODO: To be removed if/when pandas_datareader is updated.
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 
 class FamaFrenchDataReader(FactorsDataReader, ReturnsDataReader):
     def __init__(self):
