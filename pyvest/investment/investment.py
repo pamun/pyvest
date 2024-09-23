@@ -8,7 +8,7 @@ from pyvest.investment.transaction import BuyTransaction, SellTransaction, \
 
 class Investment:
     def __init__(self, tickers, cash, weights=None, start_date=None,
-                 end_date=None, frequency="1d", dividend_commission=0,
+                 end_date=None, frequency=None, dividend_commission=0,
                  rebalance_commission=0, reinvest_dividends=True,
                  rebalance=False, from_historical_data=True,
                  data_reader=None):
@@ -16,7 +16,9 @@ class Investment:
         self.__tickers = [tickers] if isinstance(tickers, str) else tickers
 
         self.__cash = cash
-        self.__frequency = frequency
+
+        self.__initialize_frequency(frequency)
+
         self.__start_date = self.__preprocess_date(start_date)
         self.__end_date = self.__preprocess_date(end_date)
         self.__assets = {}
@@ -419,6 +421,24 @@ class Investment:
                                       show_transactions)
 
     ################################ PRIVATE ##################################
+
+    def __initialize_frequency(self, frequency):
+
+        is_portfolio = False
+        for ticker in self.__tickers:
+            if self.__is_portfolio(ticker):
+                is_portfolio = True
+
+        if is_portfolio and (frequency is None or frequency == "1mo"):
+            # Portfolios are only available at a monthly frequency.
+            self.__frequency = "1mo"
+        elif is_portfolio:
+            raise ValueError("Fama-French portfolios are only available at a "
+                             "monthly frequency.")
+        elif frequency is None:
+            self.__frequency = "1d"
+        else:
+            self.__frequency = frequency
 
     def __initialize_state_history(self):
         self.__transactions_history = {}
