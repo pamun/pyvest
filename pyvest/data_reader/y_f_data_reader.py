@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from pyvest.data_reader import ReturnsDataReader
 from pyvest.data_reader.history_data_reader import HistoryDataReader
 
@@ -22,6 +24,13 @@ class YFDataReader(ReturnsDataReader, HistoryDataReader):
         return monthly_returns_df
 
     def read_history(self, ticker, start_date, end_date, interval='1d'):
+
+        if isinstance(start_date, str):
+            start_date = pd.to_datetime(start_date).tz_localize(None)
+        if isinstance(end_date, str):
+            end_date = pd.to_datetime(end_date).tz_localize(None)
+
+        end_date += timedelta(days=1)
 
         history_df = yf.Ticker(ticker).history(start=start_date, end=end_date,
                                                interval=interval,
