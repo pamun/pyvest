@@ -4,5 +4,5 @@ yfinance~=0.2.12
 matplotlib~=3.7.0
 statsmodels~=0.13.5
 scipy~=1.10.1
-setuptools~=67.4.0
+setuptools>=70.0.0
 pandas-datareader~=0.10.0
