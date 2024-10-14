@@ -222,8 +222,7 @@ class InvestmentUniverse:
 
     def calculate_feasible_portfolios(self, nb_portfolios=20000,
                                       with_r_f=False,
-                                      random=False,
-                                      frontier=True):
+                                      random=False):
 
         if self.__min_weights is None and not with_r_f:
             self.__feasible_portfolios_equation = \

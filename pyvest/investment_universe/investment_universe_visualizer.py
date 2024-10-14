@@ -470,10 +470,13 @@ class InvestmentUniverseVisualizer:
 
         legend_label = self.__complete_label("Feasible portfolios", label)
 
+        # linewidth is 0 for surfaces but is equal to size for curves.
+        linewidth = 0 if len(investment_universe.assets) > 2 else size
+
         self.__ax.fill_betweenx(feasible_portfolios_mu_list,
                                 feasible_portfolios_std_min_list,
                                 feasible_portfolios_std_max_list,
-                                linewidth=size,
+                                linewidth=linewidth,
                                 alpha=self.__alpha,
                                 label=legend_label,
                                 color=color, zorder=zorder)
@@ -500,10 +503,13 @@ class InvestmentUniverseVisualizer:
         legend_label = self.__complete_label("Feasible portfolios with r_f",
                                              label)
 
+        # linewidth is 0 for surfaces but is equal to size for curves.
+        linewidth = 0 if len(investment_universe.assets) > 2 else size
+
         self.__ax.fill_betweenx(feasible_portfolios_mu_list,
                                 feasible_portfolios_std_min_list,
                                 feasible_portfolios_std_max_list,
-                                linewidth=size,
+                                linewidth=linewidth,
                                 alpha=self.__alpha,
                                 label=legend_label,
                                 color=color, zorder=zorder)
@@ -538,7 +544,7 @@ class InvestmentUniverseVisualizer:
             self.__ax.fill_betweenx(
                 exp_ret_list, std_list,
                 max_std * self.__max_standard_deviation,
-                linewidth=size, alpha=self.__alpha, label=legend_label,
+                linewidth=0, alpha=self.__alpha, label=legend_label,
                 color=color, zorder=zorder)
 
     def __plot_feasible_portfolios_equation_with_r_f(self, investment_universe,
@@ -559,7 +565,7 @@ class InvestmentUniverseVisualizer:
 
         legend_label = self.__complete_label("Feasible portfolios with r_f",
                                              label)
-        if len(investment_universe.assets) < 2:
+        if len(investment_universe.assets) < 3:
             self.__ax.plot(std_list, exp_ret_list, linewidth=size,
                            alpha=self.__alpha, label=legend_label, color=color,
                            zorder=zorder)
@@ -567,7 +573,7 @@ class InvestmentUniverseVisualizer:
             max_std = (1 + self.FILL_BETWEEN_X_EXCESS) \
                       * self.__max_standard_deviation
             self.__ax.fill_betweenx(exp_ret_list, std_list, max_std,
-                                    linewidth=size,
+                                    linewidth=0,
                                     alpha=self.__alpha,
                                     label=legend_label,
                                     color=color, zorder=zorder)
@@ -1086,11 +1092,11 @@ class InvestmentUniverseVisualizer:
                 },
                 "feasible_portfolios": {
                     "priority": 80 - inv_univ_index,
-                    "size": 0
+                    "size": 7
                 },
                 "feasible_portfolios_with_r_f": {
                     "priority": 90 - inv_univ_index,
-                    "size": 0
+                    "size": 7
                 },
                 "indifference_curves": {
                     "priority": 20 - inv_univ_index,
