@@ -2,6 +2,8 @@ import pandas as pd
 import datetime
 
 import pyvest.investment as investment_module
+from pyvest.investment.probability_table import ProbabilityTable
+from pyvest.investment.simulation import ProbabilityTableSimulation
 from pyvest.investment.transaction import BuyTransaction, SellTransaction, \
     DividendTransaction, ReinvestedDividendTransaction, RebalanceTransaction
 
@@ -17,10 +19,6 @@ class Investment:
 
         self.__cash = cash
 
-        self.__initialize_frequency(frequency)
-
-        self.__start_date = self.__preprocess_date(start_date)
-        self.__end_date = self.__preprocess_date(end_date)
         self.__assets = {}
         self.__asset_types = {}
 
@@ -31,10 +29,15 @@ class Investment:
         self.__data_reader = data_reader
 
         self.__unprocessed_transactions = {}
-        self.__initialize_state_history()
 
-        if from_historical_data and self.__start_date is not None \
-                and self.__end_date is not None:
+        if from_historical_data and start_date is not None \
+                and end_date is not None:
+            self.__initialize_frequency(frequency)
+            self.__start_date = self.__preprocess_date(start_date)
+            self.__end_date = self.__preprocess_date(end_date)
+
+            self.__initialize_state_history()
+
             self.__create_assets_from_historical_data()
             self.__initialize_dates()
             self.__create_dividend_transactions(dividend_commission,
@@ -44,9 +47,13 @@ class Investment:
             if weights is not None and rebalance:
                 self.__create_rebalance_transactions(rebalance_commission)
         else:
-            raise ValueError("from_historical_data must be True and "
-                             "start_date and end_date must be provided.")
+            pass
 
+
+            # raise ValueError("from_historical_data must be True and "
+            #                  "start_date and end_date must be provided.")
+
+        self.__probability_table = None
         self.__visualizer = None
 
     def __repr__(self):
@@ -86,6 +93,10 @@ class Investment:
     @property
     def end_date(self):
         return self.__end_date
+
+    @property
+    def probability_table(self):
+        return self.__probability_table
 
     @property
     def visualizer(self):
@@ -388,6 +399,25 @@ class Investment:
                 dated_values_list.append(dated_value_by_ticker)
 
         return dated_values_list
+
+    def add_probability_table(self, states, probabilities, returns):
+        tickers = None
+        if isinstance(returns, dict):
+            tickers = self.__tickers
+
+        self.__probability_table = ProbabilityTable(tickers)
+        self.__probability_table.add_states(states, probabilities)
+
+        if tickers is not None:
+            for ticker, asset_returns in returns.items():
+                self.__probability_table.add_returns(asset_returns, ticker)
+        else:
+            self.__probability_table.add_returns(returns)
+
+    def simulate(self, nb_periods):
+        simulation = ProbabilityTableSimulation(self.__probability_table)
+
+        return simulation.simulate(nb_periods)
 
     ############################## PLOT METHODS ###############################
 
