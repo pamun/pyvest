@@ -532,7 +532,7 @@ class InvestmentUniverse:
              zoom_individual=False, min_expected_return=None,
              max_expected_return=None, min_standard_deviation=None,
              max_standard_deviation=None, investors=None,
-             indifference_curves=None, optimal_portfolios=True,
+             indifference_curves=None, investor_portfolios=True,
              legend='upper left'):
         investment_universes = [self]
         if isinstance(compare_with, InvestmentUniverse):
@@ -555,7 +555,7 @@ class InvestmentUniverse:
                                max_standard_deviation=max_standard_deviation,
                                investors=investors,
                                indifference_curves=indifference_curves,
-                               optimal_portfolios=optimal_portfolios,
+                               investor_portfolios=investor_portfolios,
                                legend=legend)
 
     def add_investor(self, gamma, wealth=None, portfolio=None,
@@ -578,11 +578,22 @@ class InvestmentUniverse:
             else self.__nb_risky_assets
 
         market_assets_value = np.zeros(nb_weights)
-        self.__total_wealth = 0
+        total_wealth = 0
         for investor in self.__investors.values():
-            self.__total_wealth += investor.wealth
+
+            if investor.portfolio is None:
+                raise ValueError(
+                    "A portfolio must be defined for all investors.")
+
+            if investor.wealth is None:
+                raise ValueError(
+                    "A wealth must be defined for all investors.")
+
+            total_wealth += investor.wealth
             weights = investor.portfolio.weights
             market_assets_value += np.array(weights) * investor.wealth
+
+        self.__total_wealth = total_wealth
 
         market_weights = market_assets_value / self.__total_wealth
 
