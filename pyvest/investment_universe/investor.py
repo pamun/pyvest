@@ -23,6 +23,7 @@ class Investor:
         self.__assign_utility_function(utility_function)
         self.__assign_optimization_tolerance(optimization_tolerance)
 
+        self.__portfolio = None
         self.__optimal_portfolio = None
 
     def __repr__(self):
@@ -136,6 +137,9 @@ class Investor:
             optimal_portfolio_result.x, self.__investment_universe.mu,
             self.__investment_universe.cov, r_f=self.__investment_universe.r_f)
 
+        if self.__portfolio is None:
+            self.__portfolio = self.__optimal_portfolio
+
         return self.__optimal_portfolio
 
     def calculate_indifference_curve(self, utility, min_std=0, max_std=10,
@@ -214,6 +218,9 @@ class Investor:
         else:
             raise TypeError("The parameter 'portfolio' must be None or of "
                             "type Portfolio or list.")
+
+        if self.__investment_universe is not None:
+            self.__investment_universe.market_portfolio
 
     def __assign_name(self, name):
         if name is None or type(name) is str:

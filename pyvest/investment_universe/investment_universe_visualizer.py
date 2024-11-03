@@ -74,7 +74,8 @@ class InvestmentUniverseVisualizer:
         self.__set_default_visual_elements_properties()
 
         self.__visual_elements_list = None
-        self.__investors_colors = {}
+        self.__investor_colors = {}
+        self.__optimal_investor_colors = {}
 
     ################################# ATTRIBUTES #################################
 
@@ -274,8 +275,8 @@ class InvestmentUniverseVisualizer:
     def plot(self, figsize=(16, 9), zoom_individual=False,
              min_expected_return=None, max_expected_return=None,
              min_standard_deviation=None, max_standard_deviation=None,
-             investors=None, indifference_curves=None, optimal_portfolios=True,
-             legend='upper left'):
+             investors=None, indifference_curves=None,
+             investor_portfolios=True, legend='upper left'):
 
         self.__calculate_visible_portfolios_mu_std(zoom_individual, investors)
         self.__set_default_std_limits()
@@ -304,7 +305,7 @@ class InvestmentUniverseVisualizer:
         self.__ax.tick_params(axis='both', labelsize=25)
 
         self.__generate_visual_elements_list(investors, indifference_curves,
-                                             optimal_portfolios)
+                                             investor_portfolios)
 
         sorted_visual_elements = sorted(self.__visual_elements_list,
                                         reverse=True)
@@ -764,28 +765,6 @@ class InvestmentUniverseVisualizer:
             investment_universe.market_portfolio.expected_return, s=size,
             label=legend_label, color=color, zorder=zorder)
 
-    def __plot_investors_portfolio(self, investment_universe, investors,
-                                   indifference_curves, label, size, zorder):
-
-        for investor_name in investors:
-            if investor_name in investment_universe.investors:
-                investor = investment_universe.investors[investor_name]
-                weights = str(
-                    [("{:." + str(self.__nb_decimal_places) + "f}").format(
-                        round(weight, self.__nb_decimal_places)) for weight
-                        in investor.portfolio.weights]).replace(
-                    "'", "")
-
-                legend_label = self.__complete_label(
-                    investor_name + " - " + weights,
-                    label)
-
-                color = self.__get_investor_color(investor_name, label)
-                self.__ax.scatter(
-                    investor.portfolio.standard_deviation,
-                    investor.portfolio.expected_return,
-                    s=size, label=legend_label, color=color, zorder=zorder)
-
     def __plot_indifference_curves(self, investment_universe, investors,
                                    indifference_curves, label, size, zorder,
                                    default_nb_curves):
@@ -905,9 +884,14 @@ class InvestmentUniverseVisualizer:
         elif ptf_string == "tangency" \
                 and investment_universe.tangency_portfolio is not None:
             ptf = investment_universe.tangency_portfolio
+        elif ptf_string == "market" \
+                and investment_universe.market_portfolio is not None:
+            ptf = investment_universe.market_portfolio
         elif ptf_string == "optimal" \
                 and investor.optimal_portfolio is not None:
             ptf = investor.optimal_portfolio
+        elif ptf_string == "investor" and investor.portfolio is not None:
+            ptf = investor.portfolio
         elif ptf_string == investor.name \
                 and investor.optimal_portfolio is not None:
             ptf = investor.optimal_portfolio
@@ -916,40 +900,60 @@ class InvestmentUniverseVisualizer:
 
         return ptf
 
-    def __plot_optimal_portfolios(self, investment_universe, investors,
-                                  optimal_portfolios, label, size, zorder):
+    def __plot_investor_portfolios(self, investment_universe, investors,
+                                   investor_portfolios, label, size, zorder):
 
         if investors is None:
             investors = investment_universe.investors
 
-        if optimal_portfolios is True:
-            optimal_ptf_investors = investors
-        elif optimal_portfolios is False:
-            optimal_ptf_investors = []
+        if investor_portfolios is True:
+            investor_ptf_investors = investors
+        elif investor_portfolios is False:
+            investor_ptf_investors = []
         else:
-            optimal_portfolios = [optimal_portfolios] \
-                if type(optimal_portfolios) is not list else optimal_portfolios
-            optimal_ptf_investors = list(set(investors).intersection(
-                set(optimal_portfolios)))
+            investor_portfolios = [investor_portfolios] \
+                if type(investor_portfolios) is not list \
+                else investor_portfolios
+            investor_ptf_investors = list(set(investors).intersection(
+                set(investor_portfolios)))
 
-        for investor_name in optimal_ptf_investors:
+        for investor_name in investor_ptf_investors:
             if investor_name in investment_universe.investors:
                 investor = investment_universe.investors[investor_name]
-                if investor.optimal_portfolio is not None:
-                    weights = str(
-                        [("{:." + str(self.__nb_decimal_places) + "f}").format(
-                            round(weight, self.__nb_decimal_places)) for weight
-                            in investor.optimal_portfolio.weights]).replace(
-                        "'", "")
+                if investor.portfolio is not None:
+                    self.__plot_individual_investor_portfolio(
+                        investor, investor_name, label, size, zorder)
+                if investor.optimal_portfolio is not None \
+                        and investor.optimal_portfolio != investor.portfolio:
+                    self.__plot_individual_investor_portfolio(
+                        investor, investor_name, label, size, zorder,
+                        optimal=True)
 
-                    opt_label_str = "Optimal - " + investor_name + " - " + weights
-                    legend_label = self.__complete_label(opt_label_str, label)
+    def __plot_individual_investor_portfolio(self, investor, investor_name,
+                                             label, size, zorder,
+                                             optimal=False):
 
-                    color = self.__get_investor_color(investor_name, label)
-                    self.__ax.scatter(
-                        investor.optimal_portfolio.standard_deviation,
-                        investor.optimal_portfolio.expected_return,
-                        s=size, label=legend_label, color=color, zorder=zorder)
+        label_prefix_str = "Optimal - " if optimal else "Investor - "
+        portfolio = investor.optimal_portfolio if optimal \
+            else investor.portfolio
+
+        weights = str(
+            [("{:." + str(self.__nb_decimal_places) + "f}").format(
+                round(weight, self.__nb_decimal_places)) for weight
+                in portfolio.weights]).replace(
+            "'", "")
+
+        label_str = label_prefix_str + investor_name + " - " + weights
+
+        legend_label = self.__complete_label(label_str, label)
+
+        color = self.__get_investor_color(investor_name, label,
+                                          optimal=optimal)
+
+        self.__ax.scatter(portfolio.standard_deviation,
+                          portfolio.expected_return,
+                          s=size, label=legend_label, color=color,
+                          zorder=zorder)
 
     def __check_bool(self, value, variable_name):
         if type(value) is not bool:
@@ -969,6 +973,8 @@ class InvestmentUniverseVisualizer:
         tab20c_cmap = matplotlib.cm.tab20c
         dark2_cmap = matplotlib.cm.Dark2
         accent_cmap = matplotlib.cm.Accent
+        pastel2_cmap = matplotlib.cm.Pastel2
+        set2_cmap = matplotlib.cm.Set2
 
         colors1 = {
             'feasible': tab20_cmap(0),
@@ -982,7 +988,8 @@ class InvestmentUniverseVisualizer:
             'others': [tab20b_cmap(i) for i in range(1, 20, 4)] + [
                 dark2_cmap(i) for i in range(0, 8)],
             'market': 'yellow',
-            'investors': [dark2_cmap(i) for i in range(0, 8, 1)]
+            'investors': [dark2_cmap(i) for i in range(0, 8)],
+            'optimal': [pastel2_cmap(i) for i in range(0, 8)]
         }
 
         colors2 = {
@@ -997,7 +1004,8 @@ class InvestmentUniverseVisualizer:
             'others': [tab20b_cmap(i) for i in range(3, 20, 4)] + [
                 accent_cmap(i) for i in range(0, 8)],
             'market': 'lightskyblue',
-            'investors': [dark2_cmap(i) for i in range(0, 8)]
+            'investors': [accent_cmap(i) for i in range(0, 8)],
+            'optimal': [set2_cmap(i) for i in range(0, 8)]
         }
 
         # TODO: Modify colors3 and colors4 so that the colors are all
@@ -1014,7 +1022,8 @@ class InvestmentUniverseVisualizer:
             'others': [dark2_cmap(i) for i in range(0, 8)] + [
                 accent_cmap(i) for i in range(0, 8)],
             'market': 'hotpink',
-            'investors': [accent_cmap(i) for i in range(0, 8)]
+            'investors': [dark2_cmap(i) for i in range(0, 8)],
+            'optimal': [pastel2_cmap(i) for i in range(0, 8)]
         }
 
         colors4 = {
@@ -1029,7 +1038,8 @@ class InvestmentUniverseVisualizer:
             'others': [dark2_cmap(i) for i in range(4, 8)] + [
                 accent_cmap(i) for i in range(4, 8)],
             'market': 'palegreen',
-            'investors': [accent_cmap(i) for i in range(4, 8)]
+            'investors': [accent_cmap(i) for i in range(0, 8)],
+            'optimal': [set2_cmap(i) for i in range(0, 8)]
         }
 
         if len(self.__labels) > 0:
@@ -1103,7 +1113,7 @@ class InvestmentUniverseVisualizer:
                     "size": 2,
                     "nb_curves": 7
                 },
-                "optimal_portfolios": {
+                "investor_portfolios": {
                     "priority": 15 - inv_univ_index,
                     "size": 200
                 }
@@ -1112,7 +1122,7 @@ class InvestmentUniverseVisualizer:
                 inv_univ_index] = vis_elem_properties
 
     def __generate_visual_elements_list(self, investors, indifference_curves,
-                                        optimal_portfolios):
+                                        investor_portfolios):
 
         self.__visual_elements_list = []
 
@@ -1258,29 +1268,33 @@ class InvestmentUniverseVisualizer:
                         inv_univ, label, investors, indifference_curves,
                         properties["indifference_curves"]["nb_curves"]))
 
-            if optimal_portfolios is not None \
-                    and optimal_portfolios is not False:
+            if investor_portfolios is not None \
+                    and investor_portfolios is not False:
                 self.__visual_elements_list.append(
                     self.VisualElement(
-                        self.__plot_optimal_portfolios,
-                        properties["optimal_portfolios"]["priority"],
-                        properties["optimal_portfolios"]["size"],
-                        inv_univ, label, investors, optimal_portfolios))
+                        self.__plot_investor_portfolios,
+                        properties["investor_portfolios"]["priority"],
+                        properties["investor_portfolios"]["size"],
+                        inv_univ, label, investors, investor_portfolios))
 
             inv_univ_index += 1
 
-    def __get_investor_color(self, investor_name, label):
+    def __get_investor_color(self, investor_name, label, optimal=False):
 
-        if investor_name in self.__investors_colors:
-            investor_color = self.__investors_colors[investor_name]
+        color_key = "optimal" if optimal else "investors"
+        investors_colors = self.__optimal_investor_colors if optimal \
+            else self.__investor_colors
+
+        if investor_name in investors_colors:
+            investor_color = investors_colors[investor_name]
         else:
             color_label = label if label is not None else "1"
-            color_iter = iter(self.__colors[color_label]["investors"])
+            color_iter = iter(self.__colors[color_label][color_key])
 
             investor_color = next(color_iter)
-            while investor_color in self.__investors_colors.values():
+            while investor_color in investors_colors.values():
                 investor_color = next(color_iter)
 
-            self.__investors_colors[investor_name] = investor_color
+            investors_colors[investor_name] = investor_color
 
         return investor_color
