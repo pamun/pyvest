@@ -2,7 +2,8 @@ import pandas as pd
 import datetime
 
 import pyvest.investment as investment_module
-from pyvest.investment.probability_table import ProbabilityTable
+from pyvest.investment.probability_table import SingleProbabilityTable, \
+    ProbabilityTable, JointProbabilityTable
 from pyvest.investment.simulation import ProbabilityTableSimulation
 from pyvest.investment.transaction import BuyTransaction, SellTransaction, \
     DividendTransaction, ReinvestedDividendTransaction, RebalanceTransaction
@@ -13,7 +14,7 @@ class Investment:
                  end_date=None, frequency=None, dividend_commission=0,
                  rebalance_commission=0, reinvest_dividends=True,
                  rebalance=False, from_historical_data=True,
-                 data_reader=None):
+                 data_reader=None, name=None):
 
         self.__tickers = [tickers] if isinstance(tickers, str) else tickers
 
@@ -27,6 +28,8 @@ class Investment:
         self.__rebalance = rebalance
 
         self.__data_reader = data_reader
+
+        self.__name = name
 
         self.__unprocessed_transactions = {}
 
@@ -48,8 +51,6 @@ class Investment:
                 self.__create_rebalance_transactions(rebalance_commission)
         else:
             pass
-
-
             # raise ValueError("from_historical_data must be True and "
             #                  "start_date and end_date must be provided.")
 
@@ -61,6 +62,10 @@ class Investment:
 
     def __str__(self):
         return self.__generate_output()
+
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def current_state(self):
@@ -405,7 +410,8 @@ class Investment:
         if isinstance(returns, dict):
             tickers = self.__tickers
 
-        self.__probability_table = ProbabilityTable(tickers)
+        self.__probability_table = SingleProbabilityTable(tickers,
+                                                          name=self.name)
         self.__probability_table.add_states(states, probabilities)
 
         if tickers is not None:
@@ -414,8 +420,22 @@ class Investment:
         else:
             self.__probability_table.add_returns(returns)
 
-    def simulate(self, nb_periods):
-        simulation = ProbabilityTableSimulation(self.__probability_table)
+    def simulate(self, nb_periods, against=None):
+
+        if against is None:
+            probability_table = self.__probability_table
+        elif isinstance(against, Investment):
+            probability_table = JointProbabilityTable(
+                {self.__probability_table.name: self.__probability_table,
+                 against.probability_table.name: against.probability_table})
+        else:
+            single_probability_tables = \
+                [self.__probability_table] \
+                + [x.probability_table for x in against]
+            probability_table = JointProbabilityTable(
+                single_probability_tables)
+
+        simulation = ProbabilityTableSimulation(probability_table)
 
         return simulation.simulate(nb_periods)
 
